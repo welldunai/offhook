@@ -1,0 +1,108 @@
+---
+import DocsLayout from "../../layouts/DocsLayout.astro";
+import Code from "../../components/docs/Code.astro";
+import Callout from "../../components/docs/Callout.astro";
+import Endpoint from "../../components/docs/Endpoint.astro";
+import Params from "../../components/docs/Params.astro";
+const EVENTS = [
+  // [event, status pill modifier ("" = neutral), description]
+  ["call.queued", "", "Call accepted and queued to dial."],
+  ["call.dialing", "wd-status--dialing", "The carrier is dialing the number."],
+  ["call.in_progress", "wd-status--live", "Connected — the conversation is live."],
+  ["call.completed", "wd-status--done", "Ended normally. Includes outcome + transcript."],
+  ["call.failed", "wd-status--failed", "Ended in error. Includes an error_code."],
+  ["call.received", "", "An inbound call arrived on one of your numbers."],
+  ["carrier.hangup", "", "The carrier reported a hangup cause (busy, no-answer…)."],
+];
+---
+
+<DocsLayout title="Webhooks" lead="Receive a signed HTTP callback for every call event, instead of polling. Deliveries are retried with exponential backoff until they succeed." slug="webhooks">
+        <h2 id="register">Register an endpoint</h2>
+        <Endpoint method="POST" path="/v1/webhooks" />
+        <Params rows={[
+          { name: "url", type: "string", required: true, desc: "Public https URL to receive POSTs. Validated for SSRF at write time." },
+          { name: "events", type: "string[]", desc: "Event types to subscribe to. Empty = all events." },
+        ]} />
+        <Code tabs={[{ label: "cURL", lang: "bash", code: `curl -X POST http://localhost:8000/v1/webhooks \\
+  -H "Authorization: Bearer $OFFHOOK_KEY" \\
+  -H "Content-Type: application/json" \\
+  -d '{ "url": "https://you.example.com/hook", "events": [] }'` }, { label: "Response", lang: "json", code: `{
+  "id": "whk_…",
+  "url": "https://you.example.com/hook",
+  "events": [],
+  "enabled": true,
+  "secret": "whsec_…"
+}` }]} />
+        <Callout kind="warn">
+          The <code>secret</code> is returned once. Use it to verify signatures (below).
+        </Callout>
+
+        <h2 id="events">Event types</h2>
+        <div class="wd-table-wrap">
+          <table class="events">
+            <thead><tr><th>Event</th><th>When</th></tr></thead>
+            <tbody>
+              {EVENTS.map(([ev, cls, d]) => (
+                <tr>
+                  <td><span class:list={["wd-status", cls]}><span class="wd-status-dot" aria-hidden="true" />{ev}</span></td>
+                  <td>{d}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+          ))}
+        </div>
+
+        <h2 id="payload">Payload</h2>
+        <p>Each delivery is a POST with this JSON body and these headers:</p>
+        <Code tabs={[{ label: "Body", lang: "json", code: `{
+  "id": "evt_…",
+  "event": "call.completed",
+  "created": 1750412445,
+  "data": {
+    "call_id": "call_8f2c…",
+    "status": "completed",
+    "summary": "Confirmed for Tuesday 3 PM",
+    "duration_seconds": 38
+  }
+}` }, { label: "Headers", lang: "text", code: `X-Voice-Event:     call.completed
+X-Voice-Delivery:  evt_…
+X-Voice-Signature: t=1750412445,v1=4f1c…` }]} />
+
+        <h2 id="verify">Verify the signature</h2>
+        <p>
+          The <code>X-Voice-Signature</code> header is <code>t=&lt;unix&gt;,v1=&lt;hmac&gt;</code>,
+          where the HMAC is SHA-256 of <code>"&#123;t&#125;.&#123;raw_body&#125;"</code> keyed
+          with your endpoint secret. Recompute it and compare in constant time; reject
+          stale timestamps to prevent replay.
+        </p>
+        <Code tabs={[
+          { label: "Python", lang: "text", code: `import hmac, hashlib, time
+
+def verify(secret, body, header, tolerance=300):
+    parts = dict(p.split("=", 1) for p in header.split(","))
+    t, v1 = int(parts["t"]), parts["v1"]
+    if abs(time.time() - t) > tolerance:
+        return False
+    expected = hmac.new(secret.encode(), f"{t}.{body}".encode(),
+                        hashlib.sha256).hexdigest()
+    return hmac.compare_digest(expected, v1)` },
+          { label: "Node", lang: "text", code: `import crypto from "node:crypto";
+
+function verify(secret, body, header, tolerance = 300) {
+  const p = Object.fromEntries(header.split(",").map(s => s.split("=")));
+  const t = Number(p.t);
+  if (Math.abs(Date.now() / 1000 - t) > tolerance) return false;
+  const expected = crypto.createHmac("sha256", secret)
+    .update(\`\${t}.\${body}\`).digest("hex");
+  return crypto.timingSafeEqual(Buffer.from(expected), Buffer.from(p.v1));
+}` },
+        ]} />
+        <Callout kind="note">Verify against the <strong>raw</strong> request body, before any JSON re-serialization.</Callout>
+
+        <h2 id="manage">List &amp; delete</h2>
+        <Endpoint method="GET" path="/v1/webhooks" />
+        <Endpoint method="DELETE" path="/v1/webhooks/{id}" />
+
+</DocsLayout>

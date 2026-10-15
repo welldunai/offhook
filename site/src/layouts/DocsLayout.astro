@@ -1,0 +1,66 @@
+---
+import Base from "./Base.astro";
+import { DOCS_NAV, DOCS_FLAT, docsHref } from "../docs-nav";
+
+interface Props {
+  title: string;
+  /** One or two sentences under the title. May contain inline HTML (<strong>, <em>, <code>). */
+  lead: string;
+  slug: string;
+}
+const { title, lead, slug } = Astro.props;
+const i = DOCS_FLAT.findIndex((p) => p.slug === slug);
+const page = DOCS_FLAT[i];
+const prev = i > 0 ? DOCS_FLAT[i - 1] : null;
+const next = i < DOCS_FLAT.length - 1 ? DOCS_FLAT[i + 1] : null;
+const plainLead = lead.replace(/<[^>]+>/g, "");
+---
+
+<Base title={`${title} · Offhook docs`} description={plainLead}>
+  <div class="wd-container docs">
+    <aside class="docs-nav" aria-label="Documentation">
+      <details open>
+        <summary>Documentation</summary>
+        {DOCS_NAV.map((g) => (
+          <div class="docs-nav-group">
+            <p class="docs-nav-title">{g.group}</p>
+            {g.items.map((it) => (
+              <a href={docsHref(it.slug)} aria-current={it.slug === slug ? "page" : undefined}>{it.label}</a>
+            ))}
+          </div>
+        ))}
+      </details>
+    </aside>
+
+    <article class="docs-main">
+      <header class="docs-head">
+        <p class="wd-eyebrow">{page?.group}</p>
+        <h1 class="display-md">{title}</h1>
+        <p class="docs-lead body-lg" set:html={lead} />
+      </header>
+      <div class="wd-prose docs-prose">
+        <slot />
+      </div>
+      <nav class="docs-pager" aria-label="Previous and next page">
+        {prev ? (
+          <a class="wd-card" href={docsHref(prev.slug)}>
+            <span class="wd-eyebrow">← Previous</span>
+            <span class="docs-pager-title">{prev.label}</span>
+          </a>
+        ) : <span />}
+        {next ? (
+          <a class="wd-card next" href={docsHref(next.slug)}>
+            <span class="wd-eyebrow">Next →</span>
+            <span class="docs-pager-title">{next.label}</span>
+          </a>
+        ) : <span />}
+      </nav>
+    </article>
+  </div>
+</Base>
+
+<script>
+  // On wide screens the sidebar is always open; on phones it starts collapsed.
+  const d = document.querySelector<HTMLDetailsElement>(".docs-nav details");
+  if (d && matchMedia("(max-width: 960px)").matches) d.open = false;
+</script>

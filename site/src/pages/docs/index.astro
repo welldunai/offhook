@@ -1,0 +1,51 @@
+---
+import DocsLayout from "../../layouts/DocsLayout.astro";
+import Code from "../../components/docs/Code.astro";
+import Callout from "../../components/docs/Callout.astro";
+---
+
+<DocsLayout title="Offhook API" lead="A single REST API to place and receive AI voice calls — driven by your own speech-to-text, text-to-speech, language, and telephony providers." slug="">
+        <p>
+          Offhook handles the hard parts of a production voice agent: low-latency
+          media, reliable dialing, a complete audit log, and signed webhooks. You
+          bring the provider keys and describe the agent; the API does the rest.
+        </p>
+
+        <h2 id="base-url">Base URL</h2>
+        <p>All requests are made to your deployment. In local development that is:</p>
+        <Code tabs={[{ label: "Base URL", lang: "text", code: "http://localhost:8000" }]} />
+        <Callout kind="note">
+          Every endpoint in these docs is relative to that base, e.g.{" "}
+          <code>POST /v1/calls</code> → <code>http://localhost:8000/v1/calls</code>.
+        </Callout>
+
+        <h2 id="model">The mental model</h2>
+        <p>Three resources, in order. Each builds on the one before it:</p>
+        <div class="chips">
+          <span class="chip"><b>1.</b> Connections — your provider keys</span>
+          <span class="chip">→</span>
+          <span class="chip"><b>2.</b> Agents — persona + which connections to use</span>
+          <span class="chip">→</span>
+          <span class="chip"><b>3.</b> Calls — dial a number with an agent</span>
+        </div>
+        <ul>
+          <li><a href="/docs/connections/">Connections</a> store your encrypted provider credentials (Deepgram, Cartesia, Groq, Plivo, …).</li>
+          <li><a href="/docs/agents/">Agents</a> bundle instructions, a voice, and the connections to run on.</li>
+          <li><a href="/docs/calls/">Calls</a> place an outbound call (or receive an inbound one) using an agent.</li>
+        </ul>
+
+        <h2 id="auth">Authentication</h2>
+        <p>
+          Every request is authenticated with a tenant API key, sent as a bearer
+          token. See <a href="/docs/authentication/">Authentication</a>.
+        </p>
+        <Code tabs={[{ label: "cURL", lang: "bash", code: `curl https://<your-offhook-host>/v1/calls \\\n  -H "Authorization: Bearer vk_live_…"` }]} />
+
+        <h2 id="next">Next steps</h2>
+        <ul>
+          <li><a href="/docs/quickstart/">Quickstart</a> — make your first call end-to-end in five steps.</li>
+          <li><a href="/docs/webhooks/">Webhooks</a> — receive call events as they happen.</li>
+          <li><a href="/docs/errors/">Errors &amp; limits</a> — status codes, error codes, rate limits.</li>
+        </ul>
+
+</DocsLayout>

@@ -1,0 +1,21 @@
+---
+// Code block for the docs: tabs ({label, lang, code}) with light highlighting.
+import { highlight } from "../highlight";
+interface Props {
+  tabs: { label: string; lang?: "bash" | "json" | "text"; code: string }[];
+}
+const { tabs } = Astro.props;
+const many = tabs.length > 1;
+---
+
+<div class="wd-code">
+  <div class="wd-code-bar" role={many ? "tablist" : undefined}>
+    {many
+      ? tabs.map((t, i) => (
+          <button type="button" role="tab" class="wd-code-tab" aria-selected={i === 0 ? "true" : "false"}>{t.label}</button>
+        ))
+      : <span class="wd-code-title">{tabs[0].label}</span>}
+    <button type="button" class="wd-code-copy" aria-live="polite">Copy</button>
+  </div>
+  {tabs.map((t, i) => <pre hidden={i !== 0}><code set:html={highlight(t.code, t.lang)} /></pre>)}
+</div>

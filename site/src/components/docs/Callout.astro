@@ -1,0 +1,13 @@
+---
+// Docs callout on the design system's .wd-callout. "warn" is the one that matters most, so it gets the signal tint.
+interface Props {
+  kind?: "tip" | "note" | "warn";
+}
+const { kind = "tip" } = Astro.props;
+const label = { tip: "Tip", note: "Note", warn: "Important" }[kind];
+---
+
+<aside class:list={["wd-callout", kind === "warn" && "wd-callout--note"]}>
+  <span class="wd-callout-label">{label}</span>
+  <div><slot /></div>
+</aside>

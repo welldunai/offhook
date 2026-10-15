@@ -1,0 +1,14 @@
+---
+// An HTTP method and path, with {params} dimmed.
+interface Props {
+  method: string;
+  path: string;
+}
+const { method, path } = Astro.props;
+const parts = path.split(/(\{[^}]+\})/g).filter(Boolean);
+---
+
+<div class="endpoint">
+  <span class="endpoint-method">{method}</span>
+  <code class="endpoint-path">{parts.map((p) => (p.startsWith("{") ? <span class="endpoint-param">{p}</span> : p))}</code>
+</div>

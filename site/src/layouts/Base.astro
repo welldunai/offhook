@@ -9,9 +9,9 @@ const { title, description } = Astro.props;
 const canonical = new URL(Astro.url.pathname, Astro.site);
 const GITHUB = "https://github.com/welldunai/offhook";
 const NAV = [
-  { label: "How it works", href: "/#how" },
-  { label: "Features", href: "/#features" },
-  { label: "Quickstart", href: "/#quickstart" },
+  { label: "Docs", href: "/docs/" },
+  { label: "Quickstart", href: "/docs/quickstart/" },
+  { label: "API", href: "/docs/calls/" },
   { label: "Blog", href: "https://blog.welldun.ai" },
 ];
 ---
@@ -46,7 +46,7 @@ const NAV = [
           <span class="wd-wordmark-product">offhook</span>
         </a>
         <nav class="wd-nav" aria-label="Main">
-          {NAV.map((l) => <a href={l.href}>{l.label}</a>)}
+          {NAV.map((l) => <a href={l.href} aria-current={l.href !== "/docs/" && Astro.url.pathname === l.href ? "page" : l.href === "/docs/" && Astro.url.pathname.startsWith("/docs/") && !NAV.some((n) => n.href !== "/docs/" && Astro.url.pathname === n.href) ? "page" : undefined}>{l.label}</a>)}
         </nav>
         <div class="wd-header-actions">
           <a class="wd-btn wd-btn--secondary wd-btn--sm" href={GITHUB}>View on GitHub</a>
@@ -66,6 +66,7 @@ const NAV = [
         </div>
         <nav class="wd-footer-links" aria-label="Footer">
           <a href={GITHUB}>GitHub</a>
+          <a href="/docs/">Docs</a>
           <a href="https://blog.welldun.ai">Blog</a>
           <a href="https://x.com/welldunai">X</a>
         </nav>

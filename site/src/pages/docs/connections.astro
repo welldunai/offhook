@@ -1,0 +1,64 @@
+---
+import DocsLayout from "../../layouts/DocsLayout.astro";
+import Code from "../../components/docs/Code.astro";
+import Callout from "../../components/docs/Callout.astro";
+import Endpoint from "../../components/docs/Endpoint.astro";
+import Params from "../../components/docs/Params.astro";
+---
+
+<DocsLayout title="Connections" lead="A connection stores one provider credential — encrypted at rest and used by your agents. Bring your own keys; Offhook never marks up provider usage." slug="connections">
+        <h2 id="providers">Supported providers</h2>
+        <p>A connection has a <code>provider_kind</code> and a <code>provider_name</code> from this allow-list:</p>
+        <table class="ptable">
+          <thead><tr><th>Kind</th><th>Providers</th><th>Secret fields</th></tr></thead>
+          <tbody>
+            <tr><td class="pname">stt</td><td><code>deepgram</code></td><td><code>api_key</code></td></tr>
+            <tr><td class="pname">tts</td><td><code>cartesia</code>, <code>openai</code></td><td><code>api_key</code></td></tr>
+            <tr><td class="pname">llm</td><td><code>groq</code>, <code>gemini</code>, <code>openrouter</code>, <code>openai</code></td><td><code>api_key</code></td></tr>
+            <tr><td class="pname">telephony</td><td><code>plivo</code>, <code>twilio</code></td><td>plivo: <code>auth_id</code>, <code>auth_token</code>, <code>from_number</code><br/>twilio: <code>account_sid</code>, <code>auth_token</code>, <code>from_number</code></td></tr>
+          </tbody>
+        </table>
+        <Callout kind="note">Call <code>GET /v1/providers</code> for the live allow-list your deployment supports.</Callout>
+
+        <h2 id="create">Create a connection</h2>
+        <Endpoint method="POST" path="/v1/connections" />
+        <Params rows={[
+          { name: "name", type: "string", required: true, desc: "Unique, human-friendly label." },
+          { name: "provider_kind", type: "enum", required: true, desc: "One of stt, tts, llm, telephony." },
+          { name: "provider_name", type: "string", required: true, desc: "A provider from the allow-list above." },
+          { name: "secrets", type: "object", required: true, desc: "Provider secret fields (see table). Write-only — never returned." },
+        ]} />
+        <Code tabs={[{ label: "cURL", lang: "bash", code: `curl -X POST http://localhost:8000/v1/connections \\
+  -H "Authorization: Bearer $OFFHOOK_KEY" \\
+  -H "Content-Type: application/json" \\
+  -d '{
+    "name": "my-plivo",
+    "provider_kind": "telephony",
+    "provider_name": "plivo",
+    "secrets": {
+      "auth_id": "MA…",
+      "auth_token": "…",
+      "from_number": "+14155550100"
+    }
+  }'` }, { label: "Response", lang: "json", code: `{
+  "id": "conn_…",
+  "name": "my-plivo",
+  "provider_kind": "telephony",
+  "provider_name": "plivo",
+  "created_at": "2026-06-20T10:00:00Z"
+}` }]} />
+
+        <h2 id="list">List &amp; retrieve</h2>
+        <Endpoint method="GET" path="/v1/connections" />
+        <Endpoint method="GET" path="/v1/connections/{id}" />
+        <p>Both return metadata only — secrets are never included in any response.</p>
+
+        <h2 id="update">Rotate a secret</h2>
+        <Endpoint method="PATCH" path="/v1/connections/{id}" />
+        <p>Send a new <code>secrets</code> object (and/or <code>name</code>) to re-encrypt the credential in place.</p>
+
+        <h2 id="delete">Delete</h2>
+        <Endpoint method="DELETE" path="/v1/connections/{id}" />
+        <p>Returns <code>409</code> if an agent still references the connection.</p>
+
+</DocsLayout>

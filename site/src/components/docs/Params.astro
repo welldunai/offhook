@@ -1,0 +1,24 @@
+---
+// A parameter table. desc may contain inline HTML (<code>, <em>, <strong>).
+interface Props {
+  title?: string;
+  rows: { name: string; type: string; required?: boolean; desc: string }[];
+}
+const { title = "Body parameters", rows } = Astro.props;
+---
+
+<h3>{title}</h3>
+<div class="wd-table-wrap">
+  <table class="params">
+    <thead><tr><th>Field</th><th>Type</th><th>Description</th></tr></thead>
+    <tbody>
+      {rows.map((r) => (
+        <tr>
+          <td><code class="param-name">{r.name}</code><span class:list={["param-flag", r.required && "is-required"]}>{r.required ? "required" : "optional"}</span></td>
+          <td><span class="param-type">{r.type}</span></td>
+          <td set:html={r.desc} />
+        </tr>
+      ))}
+    </tbody>
+  </table>
+</div>
