@@ -1,0 +1,87 @@
+import { Link } from "react-router-dom";
+import { Code, Callout } from "../components";
+
+export default function Quickstart() {
+  return (
+    <>
+      <div className="eyebrow">Getting started</div>
+      <h1>Quickstart</h1>
+      <p className="lead">Go from zero to a live phone call in five steps. Each step is one API request.</p>
+
+      <h2 id="step-1">1. Get an API key</h2>
+      <p>Create a key from the console, or bootstrap one locally:</p>
+      <Code tabs={[{ label: "Terminal", lang: "bash", code: `python -m app.admin seed-dev\n# prints an API key (shown once) — copy it` }]} />
+      <p>Export it so the snippets below work as-is:</p>
+      <Code tabs={[{ label: "Terminal", lang: "bash", code: `export OFFHOOK_KEY="vk_live_…"` }]} />
+
+      <h2 id="step-2">2. Register your provider keys</h2>
+      <p>
+        Add a <Link to="/connections">connection</Link> for each leg — speech-to-text,
+        text-to-speech, the language model, and (for phone calls) telephony.
+        Secrets are encrypted at rest and never returned.
+      </p>
+      <Code tabs={[{ label: "cURL", lang: "bash", code: `curl -X POST http://localhost:8000/v1/connections \\
+  -H "Authorization: Bearer $OFFHOOK_KEY" \\
+  -H "Content-Type: application/json" \\
+  -d '{
+    "name": "my-groq",
+    "provider_kind": "llm",
+    "provider_name": "groq",
+    "secrets": { "api_key": "gsk_…" }
+  }'` }]} />
+      <p>Repeat for <code>stt</code> (deepgram), <code>tts</code> (cartesia), and <code>telephony</code> (plivo). Note each returned <code>id</code>.</p>
+
+      <h2 id="step-3">3. Create an agent</h2>
+      <p>An <Link to="/agents">agent</Link> ties instructions and a voice to the connections it runs on.</p>
+      <Code tabs={[{ label: "cURL", lang: "bash", code: `curl -X POST http://localhost:8000/v1/agents \\
+  -H "Authorization: Bearer $OFFHOOK_KEY" \\
+  -H "Content-Type: application/json" \\
+  -d '{
+    "name": "Alex",
+    "company": "Acme Clinic",
+    "instructions": "Confirm the appointment. Offer to reschedule if needed.",
+    "first_message": "Hi, this is Alex from Acme Clinic.",
+    "stt_connection_id": "conn_stt",
+    "tts_connection_id": "conn_tts",
+    "llm_connection_id": "conn_llm",
+    "telephony_connection_id": "conn_tel"
+  }'` }]} />
+
+      <h2 id="step-4">4. Place a call</h2>
+      <p>
+        Hand over a number, the agent, and any per-call <code>context</code>. The call
+        is queued instantly and dialed by a background worker.
+      </p>
+      <Code tabs={[{ label: "cURL", lang: "bash", code: `curl -X POST http://localhost:8000/v1/calls \\
+  -H "Authorization: Bearer $OFFHOOK_KEY" \\
+  -H "Content-Type: application/json" \\
+  -d '{
+    "agent_id": "agt_…",
+    "to_number": "+14155550123",
+    "context": { "patient_name": "Priya", "appointment": "Tuesday 3 PM" }
+  }'`}, { label: "Response", lang: "json", code: `{
+  "id": "call_8f2c…",
+  "status": "queued",
+  "direction": "outbound",
+  "provider_call_id": null
+}` }]} />
+      <Callout kind="note">
+        Everything in <code>context</code> is injected into the agent's prompt, so it
+        speaks with those facts in mind.
+      </Callout>
+
+      <h2 id="step-5">5. Get the result</h2>
+      <p>Poll the call, or — better — subscribe to <Link to="/webhooks">webhooks</Link>. When it ends you get the outcome, transcript, and a full event log.</p>
+      <Code tabs={[{ label: "cURL", lang: "bash", code: `curl http://localhost:8000/v1/calls/call_8f2c \\
+  -H "Authorization: Bearer $OFFHOOK_KEY"` }, { label: "Response", lang: "json", code: `{
+  "id": "call_8f2c…",
+  "status": "completed",
+  "duration_seconds": 38,
+  "error_code": null,
+  "provider_call_id": "abc-123"
+}` }]} />
+
+      <p>That's the whole loop. From here, read the <Link to="/calls">Calls reference</Link> or wire up <Link to="/webhooks">webhooks</Link>.</p>
+    </>
+  );
+}

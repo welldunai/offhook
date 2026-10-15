@@ -1,0 +1,16 @@
+.venv
+__pycache__
+*.pyc
+.pytest_cache
+.mypy_cache
+.git
+.env
+.env.example
+recordings
+scratch_*.log
+dashboard/node_modules
+dashboard/dist
+dashboard/.env
+tests
+docs
+website

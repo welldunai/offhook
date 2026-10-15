@@ -1,0 +1,142 @@
+import { Link } from "react-router-dom";
+import { Code, Callout, Endpoint, Params } from "../components";
+
+export default function Calls() {
+  return (
+    <>
+      <div className="eyebrow">Core resources</div>
+      <h1>Calls</h1>
+      <p className="lead">
+        Place outbound calls and read everything about them — status, outcome,
+        the raw event timeline, and the transcript.
+      </p>
+
+      <h2 id="lifecycle">Call lifecycle</h2>
+      <p>A call moves through these statuses. Each transition emits an <Link to="/webhooks">event</Link>:</p>
+      <div className="chips">
+        <span className="chip"><b>queued</b></span><span className="chip">→</span>
+        <span className="chip"><b>dialing</b></span><span className="chip">→</span>
+        <span className="chip"><b>in_progress</b></span><span className="chip">→</span>
+        <span className="chip"><b>completed</b></span>
+        <span className="chip" style={{ marginLeft: 8 }}>or <b>failed</b></span>
+      </div>
+
+      <h2 id="create">Place a call</h2>
+      <Endpoint method="POST" path="/v1/calls" />
+      <p>Returns immediately with <code>status: "queued"</code>; a worker dials and the call progresses asynchronously.</p>
+      <Params rows={[
+        { name: "agent_id", type: "string", required: true, desc: "The agent that will run the call." },
+        { name: "to_number", type: "string", required: true, desc: "Destination in E.164 format." },
+        { name: "from_number", type: "string", desc: "Caller ID; defaults to the telephony connection's number." },
+        { name: "context", type: "object", desc: "Arbitrary facts injected into the agent's prompt for this call." },
+        { name: "metadata", type: "object", desc: "Opaque key/values echoed back on the call; not shown to the agent." },
+        { name: "tags", type: "object", desc: <>String key/value labels for organizing and searching calls, e.g. <code>{`{"region":"North","motive":"sales"}`}</code>. Up to 25 tags; filter the feed by them below. Not shown to the agent.</> },
+      ]} />
+      <Params title="Headers" rows={[
+        { name: "Idempotency-Key", type: "string", desc: "Optional. Retrying with the same key returns the original call instead of dialing twice." },
+      ]} />
+      <Code tabs={[{ label: "cURL", lang: "bash", code: `curl -X POST http://localhost:8000/v1/calls \\
+  -H "Authorization: Bearer $OFFHOOK_KEY" \\
+  -H "Idempotency-Key: order-7741" \\
+  -H "Content-Type: application/json" \\
+  -d '{
+    "agent_id": "agt_…",
+    "to_number": "+14155550123",
+    "context": { "patient_name": "Priya" },
+    "tags": { "region": "North", "motive": "sales" }
+  }'` }, { label: "Response", lang: "json", code: `{
+  "id": "call_8f2c…",
+  "status": "queued",
+  "direction": "outbound",
+  "provider_call_id": null
+}` }]} />
+
+      <h2 id="get">Retrieve a call</h2>
+      <Endpoint method="GET" path="/v1/calls/{id}" />
+      <Code tabs={[{ label: "Response", lang: "json", code: `{
+  "id": "call_8f2c…",
+  "status": "completed",
+  "direction": "outbound",
+  "to_number": "+14155550123",
+  "from_number": "+14155550100",
+  "provider_call_id": "abc-123",
+  "error_code": null,
+  "outcome": { "summary": "Confirmed for Tuesday 3 PM" },
+  "error": null,
+  "tags": { "region": "North", "motive": "sales" },
+  "created_at": "2026-06-20T10:00:00Z",
+  "started_at": "2026-06-20T10:00:04Z",
+  "ended_at": "2026-06-20T10:00:42Z"
+}` }]} />
+
+      <h2 id="list">List calls</h2>
+      <Endpoint method="GET" path="/v1/calls" />
+      <p>Your activity feed, newest first. Combine any of these query parameters:</p>
+      <Params title="Query parameters" rows={[
+        { name: "status", type: "string", desc: "Filter by status, e.g. failed." },
+        { name: "direction", type: "string", desc: "outbound, inbound, or web." },
+        { name: "to_number / from_number", type: "string", desc: "Exact-match on a number." },
+        { name: "error_code", type: "string", desc: "Filter by failure code." },
+        { name: "tag", type: "string", desc: <>Filter by a tag, formatted <code>key:value</code> (e.g. <code>region:North</code>). Repeat to require multiple tags — results match calls carrying <em>all</em> of them.</> },
+        { name: "since / until", type: "datetime", desc: "ISO-8601 created-at range." },
+        { name: "limit / offset", type: "int", desc: "Pagination. limit ≤ 200 (default 50)." },
+      ]} />
+      <Code tabs={[{ label: "cURL", lang: "bash", code: `curl "http://localhost:8000/v1/calls?status=failed&limit=20" \\
+  -H "Authorization: Bearer $OFFHOOK_KEY"` }]} />
+
+      <h3 id="search-tags">Search by tags</h3>
+      <p>
+        Pass the same <code>tags</code> you set when placing the call. One
+        <code> tag</code> filters to a single label; repeat it to narrow further
+        (AND). Tag search is index-backed, so it stays fast over large feeds.
+      </p>
+      <Code tabs={[{ label: "One tag", lang: "bash", code: `# all calls in the North region
+curl "http://localhost:8000/v1/calls?tag=region:North" \\
+  -H "Authorization: Bearer $OFFHOOK_KEY"` }, { label: "Multiple (AND)", lang: "bash", code: `# North region AND sales motive
+curl "http://localhost:8000/v1/calls?tag=region:North&tag=motive:sales" \\
+  -H "Authorization: Bearer $OFFHOOK_KEY"` }]} />
+      <Callout kind="tip">
+        Every call in the list response carries its <code>tags</code> object, so you
+        can read the labels back without fetching each call.
+      </Callout>
+
+      <h2 id="events">Event timeline</h2>
+      <Endpoint method="GET" path="/v1/calls/{id}/events" />
+      <p>The raw, ordered log of everything that happened on the call — the audit trail.</p>
+      <Code tabs={[{ label: "Response", lang: "json", code: `[
+  { "type": "call.queued",      "ts": "…:00Z", "data": {}, "error_code": null },
+  { "type": "call.dialing",     "ts": "…:04Z", "data": { "provider_call_id": "abc-123" }, "error_code": null },
+  { "type": "call.in_progress", "ts": "…:04Z", "data": {}, "error_code": null },
+  { "type": "call.completed",   "ts": "…:42Z", "data": { "duration_seconds": 38 }, "error_code": null }
+]` }]} />
+
+      <h2 id="transcript">Transcript</h2>
+      <Endpoint method="GET" path="/v1/calls/{id}/transcript" />
+      <p>The conversation content, turn by turn.</p>
+      <Code tabs={[{ label: "Response", lang: "json", code: `{
+  "call_id": "call_8f2c…",
+  "status": "completed",
+  "summary": "Confirmed for Tuesday 3 PM",
+  "transcript": [
+    { "role": "assistant", "text": "Hi, this is Alex from Acme Clinic.", "t": 0.4 },
+    { "role": "user",      "text": "Hi, yes — that's me.",              "t": 2.1 },
+    { "role": "assistant", "text": "Great. You're confirmed for Tuesday at 3.", "t": 4.0 }
+  ]
+}` }]} />
+      <Callout kind="note">
+        Transcript and outcome are populated when the call ends, and are also
+        included in the <code>call.completed</code> webhook.
+      </Callout>
+
+      <h2 id="recording">Audio recording</h2>
+      <Endpoint method="GET" path="/v1/calls/{id}/recording" />
+      <p>
+        Streams the full call audio as a WAV (user + agent mixed to mono). The
+        call detail's <code>has_recording</code> flag tells you whether one
+        exists. Recordings are captured automatically for phone calls.
+      </p>
+      <Code tabs={[{ label: "cURL", lang: "bash", code: `curl http://localhost:8000/v1/calls/call_8f2c/recording \\
+  -H "Authorization: Bearer $OFFHOOK_KEY" -o call.wav` }]} />
+    </>
+  );
+}
