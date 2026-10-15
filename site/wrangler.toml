@@ -1,0 +1,7 @@
+# Cloudflare Workers static-assets config, the same setup as blog.welldun.ai.
+# Cloudflare builds dist/ and serves it as an assets-only Worker; no server code.
+name = "offhook-site"
+compatibility_date = "2026-10-15"
+
+[assets]
+directory = "./dist"
