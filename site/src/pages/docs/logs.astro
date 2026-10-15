@@ -29,7 +29,13 @@ import Endpoint from "../../components/docs/Endpoint.astro";
           Billable seconds and number of calls. By default this covers the current calendar
           month; pass <code>from</code> and <code>to</code> (ISO 8601) for another range.
         </p>
-        <Code tabs={[{ label: "Response", lang: "json", code: `{ "total_seconds": 41230, "call_count": 1180 }` }]} />
+        <Code tabs={[{ label: "cURL", lang: "bash", code: `curl "http://localhost:8000/v1/usage?from=2026-09-01T00:00:00Z&to=2026-10-01T00:00:00Z" \\
+  -H "Authorization: Bearer $OFFHOOK_KEY"` }, { label: "Response", lang: "json", code: `{
+  "from": "2026-09-01T00:00:00Z",
+  "to": "2026-10-01T00:00:00Z",
+  "total_seconds": 41230,
+  "call_count": 1180
+}` }]} />
 
         <h2 id="dashboard">In the dashboard</h2>
         <p>
