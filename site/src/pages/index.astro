@@ -1,0 +1,191 @@
+---
+import Base from "../layouts/Base.astro";
+import Code from "../components/Code.astro";
+
+const GITHUB = "https://github.com/welldunai/offhook";
+
+const steps = [
+  {
+    title: "Connect your keys",
+    body: "Register your Deepgram, Cartesia, LLM and carrier keys as connections. Each one is encrypted with a key that belongs to your account, and decrypted only while a call is running.",
+  },
+  {
+    title: "Define an agent",
+    body: "Give it instructions, an opening line, a voice and a model, and pick the connections it runs on. Reuse the same agent across every call.",
+  },
+  {
+    title: "Place the call",
+    body: "Send a phone number and any facts the agent should know. A worker dials, the agent talks, and you get a webhook at every step until the call ends.",
+  },
+];
+
+const stepCode = [
+  {
+    label: "1 · connections",
+    code: `curl -X POST localhost:8000/v1/connections \\
+  -H "Authorization: Bearer $OFFHOOK_KEY" \\
+  -H "content-type: application/json" \\
+  -d '{
+    "name": "my-groq",
+    "provider_kind": "llm",
+    "provider_name": "groq",
+    "secrets": {"api_key": "gsk_..."}
+  }'`,
+  },
+  {
+    label: "2 · agents",
+    code: `curl -X POST localhost:8000/v1/agents \\
+  -H "Authorization: Bearer $OFFHOOK_KEY" \\
+  -H "content-type: application/json" \\
+  -d '{
+    "name": "Alex",
+    "company": "Acme Clinic",
+    "instructions": "Confirm the appointment; offer to reschedule if needed.",
+    "first_message": "Hi, this is Alex from Acme Clinic. Am I speaking with Priya?",
+    "stt_connection_id": "conn_...",
+    "tts_connection_id": "conn_...",
+    "llm_connection_id": "conn_...",
+    "telephony_connection_id": "conn_..."
+  }'`,
+  },
+  {
+    label: "3 · calls",
+    code: `curl -X POST localhost:8000/v1/calls \\
+  -H "Authorization: Bearer $OFFHOOK_KEY" \\
+  -H "Idempotency-Key: confirm-priya-tue" \\
+  -H "content-type: application/json" \\
+  -d '{
+    "agent_id": "agt_...",
+    "to_number": "+14155550123",
+    "context": {"patient_name": "Priya", "appointment_time": "Tuesday at 3 PM"}
+  }'`,
+  },
+];
+
+const features = [
+  { term: "Calls", desc: "Outbound and inbound. An async dial queue, idempotency keys so a retried request never rings anyone twice, and clear states from queued to completed." },
+  { term: "Agents", desc: "Instructions, an opening line, a voice and a model for each agent. Built-in tools to record results and end the call, plus your own HTTP tools for live data mid-call." },
+  { term: "Providers", desc: "Deepgram for speech-to-text. Cartesia or OpenAI for text-to-speech. Groq, Gemini, OpenAI or OpenRouter for the model. Plivo or Twilio for the phone line." },
+  { term: "Call records", desc: "An event timeline, transcript, recording, structured outcome and stable error code for every call. Signed webhooks with retries for every change." },
+  { term: "Security", desc: "Provider keys stored with per-tenant envelope encryption, using a master key from the environment or AWS KMS. Hashed API keys, an SSRF guard and log redaction." },
+  { term: "Limits", desc: "Per-tenant rate limits, concurrent-call caps and monthly quotas, with usage metered in billable seconds." },
+];
+
+const quickstart = `git clone https://github.com/welldunai/offhook.git
+cd offhook
+uv venv && source .venv/bin/activate
+uv pip install -e .
+
+# add your Deepgram, Cartesia and Groq keys
+cp .env.example .env
+
+# Postgres, migrations, a dev tenant and a demo agent
+docker compose up -d
+alembic upgrade head
+python -m app.admin seed-dev \\
+  --voice-id 05a69c2d-457a-4802-8f91-628cb158b522
+
+# then open http://localhost:8000 and start talking
+python run.py`;
+---
+
+<Base
+  title="Offhook — AI phone calls you can run yourself"
+  description="Offhook is an open-source, self-hostable API for AI phone calls: speech-to-text, an LLM and text-to-speech over a real phone line, with your own keys and a full record of every call."
+>
+  <section class="hero wd-container">
+    <div class="hero-copy">
+      <p class="wd-eyebrow">Open source<span class="wd-eyebrow-sep">·</span>Apache-2.0</p>
+      <h1 class="display-xl">AI phone calls you can run yourself.</h1>
+      <p class="lede body-lg">
+        Offhook places and answers real phone calls with an AI agent. Bring your own provider keys,
+        run it on your own servers, and get a transcript and a full event log for every call.
+      </p>
+      <div class="wd-row hero-actions">
+        <a class="wd-btn wd-btn--primary" href="#quickstart">Read the quickstart <span class="wd-btn-arrow" aria-hidden="true">→</span></a>
+        <a class="wd-btn wd-btn--secondary" href={GITHUB}>View on GitHub</a>
+      </div>
+      <p class="hero-meta">Python · Postgres · built on Pipecat</p>
+    </div>
+
+    <figure class="call-record" aria-label="Example of a call record">
+      <div class="cr-head">
+        <span class="cr-id">call_7f3a91</span>
+        <span class="wd-badge">Example</span>
+        <span class="wd-status wd-status--done"><span class="wd-status-dot" aria-hidden="true"></span>completed</span>
+      </div>
+      <dl class="cr-facts">
+        <div><dt>To</dt><dd>+1 415 555 0123</dd></div>
+        <div><dt>Agent</dt><dd>Alex · Acme Clinic</dd></div>
+        <div><dt>Context</dt><dd>Priya · Tuesday at 3 PM</dd></div>
+      </dl>
+      <ol class="cr-timeline" aria-label="Event timeline">
+        <li><span class="wd-status"><span class="wd-status-dot" aria-hidden="true"></span>queued</span><span class="cr-t">00:00.0</span></li>
+        <li><span class="wd-status wd-status--dialing"><span class="wd-status-dot" aria-hidden="true"></span>dialing</span><span class="cr-t">00:00.4</span></li>
+        <li><span class="wd-status wd-status--live"><span class="wd-status-dot" aria-hidden="true"></span>in progress</span><span class="cr-t">00:06.1</span></li>
+        <li><span class="wd-status wd-status--done"><span class="wd-status-dot" aria-hidden="true"></span>completed</span><span class="cr-t">01:48.3</span></li>
+      </ol>
+      <div class="cr-transcript" aria-label="Transcript">
+        <p><span class="who">Agent</span>Hi, this is Alex from Acme Clinic. Am I speaking with Priya?</p>
+        <p><span class="who">Caller</span>Yes, that's me.</p>
+        <p><span class="who">Agent</span>I'm calling to confirm your appointment with Dr. Rao on Tuesday at 3 PM. Does that still work?</p>
+        <p><span class="who">Caller</span>It does, thanks.</p>
+      </div>
+      <div class="cr-outcome"><span class="cr-label">Outcome</span><code>{`{"confirmed": true}`}</code></div>
+    </figure>
+  </section>
+
+  <section class="section" id="how" aria-labelledby="how-title"><div class="wd-container"><div class="section-inner">
+    <div class="section-head">
+      <p class="wd-eyebrow">How it works</p>
+      <h2 id="how-title" class="display-md">Three requests to a real phone call.</h2>
+    </div>
+    <div class="how">
+      <ol class="steps">
+        {steps.map((s, i) => (
+          <li>
+            <span class="step-no">{String(i + 1).padStart(2, "0")}</span>
+            <div>
+              <h3 class="title">{s.title}</h3>
+              <p>{s.body}</p>
+            </div>
+          </li>
+        ))}
+      </ol>
+      <Code tabs={stepCode} />
+    </div>
+  </div></div></section>
+
+  <section class="section" id="features" aria-labelledby="features-title"><div class="wd-container"><div class="section-inner">
+    <div class="section-head">
+      <p class="wd-eyebrow">What's included</p>
+      <h2 id="features-title" class="display-md">The plumbing a production call needs.</h2>
+    </div>
+    <dl class="spec">
+      {features.map((f) => (
+        <div class="spec-row">
+          <dt>{f.term}</dt>
+          <dd>{f.desc}</dd>
+        </div>
+      ))}
+    </dl>
+  </div></div></section>
+
+  <section class="section" id="quickstart" aria-labelledby="qs-title"><div class="wd-container"><div class="section-inner">
+    <div class="qs">
+      <div class="qs-copy">
+        <p class="wd-eyebrow">Quickstart</p>
+        <h2 id="qs-title" class="display-md">Talk to an agent in your browser first.</h2>
+        <p class="body-lg qs-lede">
+          You don't need a phone number to start. The playground runs the same pipeline over your
+          microphone. You need Python 3.13, Docker, and free-tier keys from Deepgram, Cartesia and Groq.
+        </p>
+        <div class="wd-row">
+          <a class="wd-btn wd-btn--secondary" href={`${GITHUB}#quickstart-talk-to-an-agent-in-your-browser`}>Full quickstart on GitHub</a>
+          <a class="wd-btn wd-btn--ghost" href="https://blog.welldun.ai">How we built it <span class="wd-btn-arrow" aria-hidden="true">→</span></a>
+        </div>
+      </div>
+      <Code tabs={[{ label: "Terminal", code: quickstart }]} />
+    </div>
+  </div></div></section>
+</Base>

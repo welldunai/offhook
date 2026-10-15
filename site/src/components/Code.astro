@@ -1,0 +1,20 @@
+---
+// A welldun code block (.wd-code). One tab per entry; a single entry shows its label as a title.
+interface Props {
+  tabs: { label: string; code: string }[];
+}
+const { tabs } = Astro.props;
+const many = tabs.length > 1;
+---
+
+<div class="wd-code">
+  <div class="wd-code-bar" role={many ? "tablist" : undefined}>
+    {many
+      ? tabs.map((t, i) => (
+          <button type="button" role="tab" class="wd-code-tab" aria-selected={i === 0 ? "true" : "false"}>{t.label}</button>
+        ))
+      : <span class="wd-code-title">{tabs[0].label}</span>}
+    <button type="button" class="wd-code-copy" aria-live="polite">Copy</button>
+  </div>
+  {tabs.map((t, i) => <pre hidden={i !== 0}><code>{t.code}</code></pre>)}
+</div>

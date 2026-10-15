@@ -1,0 +1,112 @@
+---
+import "../styles/site.css";
+
+interface Props {
+  title: string;
+  description: string;
+}
+const { title, description } = Astro.props;
+const canonical = new URL(Astro.url.pathname, Astro.site);
+const GITHUB = "https://github.com/welldunai/offhook";
+const NAV = [
+  { label: "How it works", href: "/#how" },
+  { label: "Features", href: "/#features" },
+  { label: "Quickstart", href: "/#quickstart" },
+  { label: "Blog", href: "https://blog.welldun.ai" },
+];
+---
+
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+    <title>{title}</title>
+    <meta name="description" content={description} />
+    <link rel="canonical" href={canonical} />
+    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+    <meta property="og:title" content={title} />
+    <meta property="og:description" content={description} />
+    <meta property="og:type" content="website" />
+    <meta property="og:url" content={canonical} />
+    <meta property="og:site_name" content="Offhook" />
+    <meta name="twitter:card" content="summary" />
+    <meta name="theme-color" content="#f4f4f2" media="(prefers-color-scheme: light)" />
+    <meta name="theme-color" content="#111214" media="(prefers-color-scheme: dark)" />
+    <link rel="preload" href="/fonts/ArchivoExpanded.woff2" as="font" type="font/woff2" crossorigin />
+    <link rel="preload" href="/fonts/Archivo.woff2" as="font" type="font/woff2" crossorigin />
+  </head>
+  <body>
+    <a class="skip" href="#content">Skip to content</a>
+    <header class="wd-header">
+      <div class="wd-container wd-header-inner">
+        <a class="wd-wordmark" href="/" aria-label="welldun offhook, home">
+          <span>welldun<span class="wd-wordmark-dot">.</span></span>
+          <span class="wd-wordmark-slash" aria-hidden="true">/</span>
+          <span class="wd-wordmark-product">offhook</span>
+        </a>
+        <nav class="wd-nav" aria-label="Main">
+          {NAV.map((l) => <a href={l.href}>{l.label}</a>)}
+        </nav>
+        <div class="wd-header-actions">
+          <a class="wd-btn wd-btn--secondary wd-btn--sm" href={GITHUB}>View on GitHub</a>
+        </div>
+      </div>
+    </header>
+
+    <main id="content">
+      <slot />
+    </main>
+
+    <footer class="wd-footer">
+      <div class="wd-container wd-footer-inner">
+        <div class="wd-row">
+          <a class="wd-wordmark" href="https://blog.welldun.ai" aria-label="welldun"><span>welldun<span class="wd-wordmark-dot">.</span></span></a>
+          <span>Offhook is open source under Apache-2.0.</span>
+        </div>
+        <nav class="wd-footer-links" aria-label="Footer">
+          <a href={GITHUB}>GitHub</a>
+          <a href="https://blog.welldun.ai">Blog</a>
+          <a href="https://x.com/welldunai">X</a>
+        </nav>
+      </div>
+    </footer>
+
+    <script>
+      // Header shadow after scroll.
+      const head = document.querySelector(".wd-header");
+      const onScroll = () => head?.setAttribute("data-scrolled", String(window.scrollY > 4));
+      onScroll();
+      addEventListener("scroll", onScroll, { passive: true });
+
+      // Code blocks: tabs switch panels; copy copies the visible panel.
+      for (const block of document.querySelectorAll<HTMLElement>(".wd-code")) {
+        const tabs = [...block.querySelectorAll<HTMLButtonElement>(".wd-code-tab")];
+        const panels = [...block.querySelectorAll<HTMLElement>("pre")];
+        tabs.forEach((tab, i) =>
+          tab.addEventListener("click", () => {
+            tabs.forEach((t, j) => t.setAttribute("aria-selected", String(i === j)));
+            panels.forEach((p, j) => (p.hidden = i !== j));
+          }),
+        );
+        const copy = block.querySelector<HTMLButtonElement>(".wd-code-copy");
+        copy?.addEventListener("click", async () => {
+          const pre = panels.find((p) => !p.hidden) ?? panels[0];
+          let label = "Copied";
+          try {
+            await navigator.clipboard.writeText(pre.innerText);
+          } catch {
+            const range = document.createRange();
+            range.selectNodeContents(pre);
+            const sel = getSelection();
+            sel?.removeAllRanges();
+            sel?.addRange(range);
+            label = "Selected";
+          }
+          copy.textContent = label;
+          setTimeout(() => (copy.textContent = "Copy"), 1400);
+        });
+      }
+    </script>
+  </body>
+</html>
