@@ -12,3 +12,4 @@ recordings/
 scratch_*.log
 node_modules/
 dashboard/.env
+.astro/
