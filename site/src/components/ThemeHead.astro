@@ -1,0 +1,36 @@
+---
+// Theme bootstrap for every welldun site. Must stay in <head>, before any stylesheet,
+// and must stay `is:inline` so Astro doesn't defer it: it sets data-theme before first
+// paint, so a saved choice never flashes the other theme.
+//
+// The choice is stored as a `wd-theme` cookie on .welldun.ai, so it is shared by
+// blog.welldun.ai and offhook.welldun.ai, with localStorage as a per-site fallback.
+// The cookie wins when present ("system" included), so both sites always agree.
+// "light" or "dark" sets data-theme; anything else means "follow the system".
+const LIGHT = "#f4f4f2"; // surface, light
+const DARK = "#111214"; // surface, dark
+---
+
+<meta name="theme-color" content={LIGHT} media="(prefers-color-scheme: light)" />
+<meta name="theme-color" content={DARK} media="(prefers-color-scheme: dark)" />
+<script is:inline define:vars={{ LIGHT, DARK }}>
+  (function () {
+    var t = null;
+    var fromCookie = false;
+    try {
+      var m = document.cookie.match(/(?:^|;\s*)wd-theme=(light|dark|system)(?:;|$)/);
+      if (m) { fromCookie = true; t = m[1] === "system" ? null : m[1]; }
+    } catch (e) {}
+    if (!fromCookie) {
+      try {
+        var s = localStorage.getItem("wd-theme");
+        if (s === "light" || s === "dark") t = s;
+      } catch (e) {}
+    }
+    if (t) {
+      document.documentElement.setAttribute("data-theme", t);
+      var metas = document.querySelectorAll('meta[name="theme-color"]');
+      for (var i = 0; i < metas.length; i++) metas[i].setAttribute("content", t === "dark" ? DARK : LIGHT);
+    }
+  })();
+</script>

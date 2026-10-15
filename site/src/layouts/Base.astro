@@ -1,4 +1,6 @@
 ---
+import ThemeHead from "../components/ThemeHead.astro";
+import ThemeSwitch from "../components/ThemeSwitch.astro";
 import "../styles/site.css";
 
 interface Props {
@@ -23,6 +25,7 @@ const NAV = [
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+    <ThemeHead />
     <title>{title}</title>
     <meta name="description" content={description} />
     <link rel="canonical" href={canonical} />
@@ -41,8 +44,6 @@ const NAV = [
     <meta name="twitter:description" content={description} />
     <meta name="twitter:image" content={ogImage} />
     <meta name="twitter:image:alt" content={ogAlt} />
-    <meta name="theme-color" content="#f4f4f2" media="(prefers-color-scheme: light)" />
-    <meta name="theme-color" content="#111214" media="(prefers-color-scheme: dark)" />
     <link rel="preload" href="/fonts/ArchivoExpanded.woff2" as="font" type="font/woff2" crossorigin />
     <link rel="preload" href="/fonts/Archivo.woff2" as="font" type="font/woff2" crossorigin />
   </head>
@@ -80,6 +81,7 @@ const NAV = [
           <a href="https://blog.welldun.ai">Blog</a>
           <a href="https://x.com/welldunai">X</a>
         </nav>
+        <ThemeSwitch />
       </div>
     </footer>
 

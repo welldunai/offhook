@@ -1,0 +1,123 @@
+---
+// System / Light / Dark switch (design system: .wd-theme). Rendered hidden; the script
+// reveals it, so visitors without JavaScript don't see a control that can't work.
+const options = [
+  { value: "system", label: "System" },
+  { value: "light", label: "Light" },
+  { value: "dark", label: "Dark" },
+];
+---
+
+<fieldset class="wd-theme" hidden>
+  <legend class="wd-theme-legend">Theme</legend>
+  <div class="wd-theme-options">
+    {options.map((o) => (
+      <label class="wd-theme-option">
+        <input type="radio" name="wd-theme" value={o.value} />
+        <span>{o.label}</span>
+      </label>
+    ))}
+  </div>
+</fieldset>
+
+<script>
+  type Choice = "system" | "light" | "dark";
+  const KEY = "wd-theme";
+  const LIGHT = "#f4f4f2";
+  const DARK = "#111214";
+  const YEAR = 60 * 60 * 24 * 365;
+  const root = document.documentElement;
+  const darkOS = matchMedia("(prefers-color-scheme: dark)");
+
+  // Share the choice across *.welldun.ai; elsewhere (localhost, previews) keep it host-only.
+  const host = location.hostname;
+  const domain = host === "welldun.ai" || host.endsWith(".welldun.ai") ? "; Domain=welldun.ai" : "";
+  const secure = location.protocol === "https:" ? "; Secure" : "";
+
+  const valid = (v: unknown): v is "light" | "dark" => v === "light" || v === "dark";
+
+  function read(): Choice {
+    try {
+      // The shared cookie wins when present, "system" included, so both sites agree.
+      const m = document.cookie.match(/(?:^|;\s*)wd-theme=(light|dark|system)(?:;|$)/);
+      if (m) return m[1] as Choice;
+    } catch {}
+    try {
+      const s = localStorage.getItem(KEY);
+      if (valid(s)) return s;
+    } catch {}
+    return "system";
+  }
+
+  function save(choice: Choice) {
+    try {
+      document.cookie = `${KEY}=${choice}; Path=/; Max-Age=${YEAR}; SameSite=Lax${domain}${secure}`;
+    } catch {}
+    try {
+      if (choice === "system") localStorage.removeItem(KEY);
+      else localStorage.setItem(KEY, choice);
+    } catch {}
+  }
+
+  function paintMeta(choice: Choice) {
+    const resolved = choice === "system" ? (darkOS.matches ? "dark" : "light") : choice;
+    for (const m of document.querySelectorAll<HTMLMetaElement>('meta[name="theme-color"]')) {
+      // With an explicit choice both metas must agree; with "system" each keeps its own media.
+      const own = m.media.includes("dark") ? DARK : LIGHT;
+      m.content = choice === "system" ? own : resolved === "dark" ? DARK : LIGHT;
+    }
+  }
+
+  function apply(choice: Choice) {
+    // Freeze transitions for one frame so hover/border animations don't play the switch.
+    root.classList.add("wd-theme-switching");
+    if (choice === "system") root.removeAttribute("data-theme");
+    else root.setAttribute("data-theme", choice);
+    paintMeta(choice);
+    requestAnimationFrame(() => requestAnimationFrame(() => root.classList.remove("wd-theme-switching")));
+  }
+
+  function sync(choice: Choice) {
+    for (const input of document.querySelectorAll<HTMLInputElement>('.wd-theme input[name="wd-theme"]')) {
+      input.checked = input.value === choice;
+    }
+  }
+
+  let current = read();
+  apply(current);
+  sync(current);
+
+  for (const fs of document.querySelectorAll<HTMLFieldSetElement>(".wd-theme")) {
+    fs.hidden = false;
+    fs.addEventListener("change", (e) => {
+      const v = (e.target as HTMLInputElement).value as Choice;
+      current = v === "light" || v === "dark" ? v : "system";
+      save(current);
+      apply(current);
+      sync(current);
+    });
+  }
+
+  // The OS switched light/dark while "System" is selected: CSS follows on its own,
+  // the browser's theme-color has to be told.
+  darkOS.addEventListener("change", () => {
+    if (current === "system") paintMeta(current);
+  });
+
+  // Another tab (or the other welldun site, via the shared cookie) changed the choice.
+  const recheck = () => {
+    const next = read();
+    if (next !== current) {
+      current = next;
+      apply(current);
+      sync(current);
+    }
+  };
+  addEventListener("storage", (e) => {
+    if (e.key === KEY || e.key === null) recheck();
+  });
+  addEventListener("focus", recheck);
+  document.addEventListener("visibilitychange", () => {
+    if (document.visibilityState === "visible") recheck();
+  });
+</script>

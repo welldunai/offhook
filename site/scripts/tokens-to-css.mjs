@@ -16,11 +16,16 @@ for (const f of t.type.fonts) {
   const file = f.file.replace(/^fonts\//, "");
   out.push(`@font-face { font-family: "${f.family}"; src: url("/fonts/${file}") format("woff2"); font-weight: ${f.weight}; font-style: normal; font-display: swap; }`);
 }
-out.push(`:root {\n${themed(first)}\n}`);
+// Bare :root is the first (light) theme. Saying color-scheme explicitly matters when the OS
+// is dark but the visitor picked light: scrollbars and form controls then follow the page.
+out.push(`:root {\n${themed(first)}\n  color-scheme: ${first};\n}`);
 for (const th of rest) {
   out.push(`@media (prefers-color-scheme: ${th}) {\n  :root:not([data-theme="${first}"]) {\n${themed(th).replace(/^/gm, "  ")}\n    color-scheme: ${th};\n  }\n}`);
   out.push(`:root[data-theme="${th}"] {\n${themed(th)}\n  color-scheme: ${th};\n}`);
 }
+// Printing always uses the first (light) theme, whatever the screen shows.
+// :not([data-print-never]) only raises specificity to match the dark-scheme rule above, so this later block wins.
+out.push(`@media print {\n  :root:not([data-print-never]), :root[data-theme] {\n${themed(first).replace(/^/gm, "  ")}\n    color-scheme: ${first};\n  }\n}`);
 const other = ["spacing", "radius", "size"].flatMap((k) => (t[k]?.tokens ?? []).map((x) => `  --${x.name}: ${x.value};`));
 const fams = Object.entries(t.type.families).map(([k, v]) => `  --font-${k}: ${v};`);
 out.push(`:root {\n${[...other, ...fams].join("\n")}\n}`);
