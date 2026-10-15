@@ -20,9 +20,9 @@ dependencies = [
     "argon2-cffi>=23",
     "pyjwt[crypto]>=2.8",
     "python-multipart>=0.0.9",
-    # Same provider set as rubik's voice infra: Cartesia TTS, Deepgram STT,
-    # OpenAI/OpenRouter LLM, Plivo telephony, Silero VAD, SmallWebRTC.
-    # Pinned to match rubik: newer pipecat pulls numba/llvmlite versions that
+    # Providers: Cartesia TTS, Deepgram STT, OpenAI-compatible LLMs, Plivo
+    # telephony, Silero VAD, SmallWebRTC.
+    # Pinned: newer pipecat pulls numba/llvmlite versions that
     # have no prebuilt macOS wheel and fail to compile without LLVM installed.
     "pipecat-ai[cartesia,deepgram,openai,runner,silero,webrtc]==0.0.101",
     # Pipecat's prebuilt playground UI served at /client for local testing.

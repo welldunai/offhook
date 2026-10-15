@@ -1,326 +1,124 @@
-# offhook
+# Offhook
 
-An open-source, self-hostable voice-calling backend any third party can consume (N8N,
-Composio, plain API). Place voice calls driven by **STT + LLM + TTS**,
-orchestrated by [Pipecat]. **Multi-tenant**: each tenant authenticates with an
-API key and brings their own provider credentials (BYO keys), stored encrypted.
+**Open-source, self-hostable API for AI phone calls.**
 
-[Pipecat]: https://github.com/pipecat-ai/pipecat
+Give it a phone number and an agent, and Offhook places the call: speech-to-text, an LLM and text-to-speech, streamed over a real phone line. Bring your own provider keys, run it on your own infrastructure, and get back a transcript, a structured outcome and a full event log for every call.
 
-## How it works (multi-tenant)
+Think Retell or Vapi, but you own it.
 
-1. A **tenant** holds an **API key** (`Authorization: Bearer vk_...`).
-2. The tenant registers **connections** — their provider keys (Deepgram,
-   Cartesia, an LLM, Plivo), stored **encrypted** (envelope encryption; a
-   per-tenant data key wrapped by a master key held outside the DB).
-3. They define **agents** (instructions, voice, model) that reference those
-   connections per leg.
-4. `POST /v1/calls {agent_id, to_number, context}` places a call; credentials
-   are decrypted only for the duration of that call, never logged or returned.
+<!-- TODO: 15–20s demo clip of a real call (sound on) -->
 
-Security: API keys hashed with argon2id; secrets AES-GCM encrypted at rest
-(AAD-bound to their row); per-tenant query scoping; carrier webhooks authed by a
-single-use session token (+ Plivo signature); SSRF guard on outbound URLs; log
-redaction. See `app/{auth,crypto,security,tenancy}`.
+## Why Offhook
 
-## Stack (same providers as rubik)
+- **Your keys, your infra.** Each tenant brings their own Deepgram, Cartesia, LLM and carrier keys. They are envelope-encrypted at rest and decrypted only for the length of a call.
+- **Fast enough to feel human.** Built on [Pipecat](https://github.com/pipecat-ai/pipecat). With Groq's `llama-3.1-8b-instant`, the model starts replying in about 300 ms.
+- **Production plumbing included.** Async dialing with idempotency keys, signed webhooks with retries, per-tenant rate limits and quotas, inbound calls, stable error codes and a per-call event timeline.
+- **Easy to extend.** Every STT, TTS, LLM, carrier and agent tool is a registry entry. Adding a new provider is one file.
 
-| Layer      | Default provider | Env var to swap            |
-| ---------- | ---------------- | -------------------------- |
-| STT        | Deepgram (`nova-3`) | `VOICE_STT_PROVIDER`    |
-| TTS        | Cartesia (`sonic-3`) | `VOICE_TTS_PROVIDER`   |
-| LLM        | Groq (`llama-3.1-8b-instant`) | `VOICE_LLM_PROVIDER` |
-| Telephony  | Plivo            | `VOICE_TELEPHONY_PROVIDER` |
-| Dev call   | SmallWebRTC (browser) | —                     |
+## How it works
 
-LLM options: `groq` (fastest, free tier — the default), `gemini` (Google direct,
-`gemini-2.5-flash`), `openrouter`, `openai`. TTS: `cartesia` (`sonic-3` is far
-more expressive than `sonic-2`) or `openai`.
+```
+POST /v1/calls ──▶ queue ──▶ worker dials ──▶ carrier (Plivo / Twilio)
+                                                  │
+                         caller's voice ◀──▶ STT ─▶ LLM (+ tools) ─▶ TTS
+                                                  │
+           webhooks · transcript · outcome ◀──────┘
+```
 
-The pipeline is `transport.input() → STT → LLM (with tools) → TTS → transport.output()`.
-Provider choice is fully env-driven (see `app/config.py`); per-call voice/model
-overrides are supported via the `agent` payload.
+1. Register your provider keys as **connections**.
+2. Define an **agent**: instructions, voice, model, and which connections it uses.
+3. `POST /v1/calls` with a phone number and some context. A worker dials, the agent talks, and you get webhooks as the call moves from `queued` to `completed`.
 
-## Setup
+## Quickstart: talk to an agent in your browser
 
-Requires **Postgres**. Local dev:
+You don't need a phone number or a carrier for this. The dev playground runs the same pipeline over WebRTC from your browser.
+
+**You need:** Python 3.13, Docker (for Postgres), and API keys for [Deepgram](https://deepgram.com), [Cartesia](https://cartesia.ai) and [Groq](https://console.groq.com). All three have free tiers.
 
 ```bash
+git clone https://github.com/welldunai/offhook.git && cd offhook
 uv venv && source .venv/bin/activate
 uv pip install -e .
 cp .env.example .env
+```
 
-# Postgres (docker compose, or use a local instance + create role/db 'voice')
+In `.env`, set `DEEPGRAM_API_KEY`, `CARTESIA_API_KEY`, `GROQ_API_KEY`, and a master encryption key:
+
+```bash
+python -c "import os,base64;print(base64.b64encode(os.urandom(32)).decode())"   # → MASTER_ENCRYPTION_KEY
+```
+
+Then start Postgres, run migrations, and create a dev tenant with a demo agent:
+
+```bash
 docker compose up -d
-
-# Generate a master key, put it in .env as MASTER_ENCRYPTION_KEY (base64, 32 bytes):
-python -c "import os,base64;print(base64.b64encode(os.urandom(32)).decode())"
-
-alembic upgrade head                       # run migrations (separate from app boot)
-python -m app.admin seed-dev               # tenant + connections (from env keys) + demo agent
-python run.py                              # serves on :8000
+alembic upgrade head
+python -m app.admin seed-dev --voice-id 05a69c2d-457a-4802-8f91-628cb158b522
 ```
 
-`seed-dev` prints an **API key (once)** and a **DEV_AGENT_ID** — add the latter
-to `.env` for the playground. The browser playground (`http://localhost:8000`,
-dev only) talks to that agent using its stored connections.
-
-Key env (see `.env.example`): `DATABASE_URL`, `MASTER_ENCRYPTION_KEY`,
-`PUBLIC_BASE_URL` (required in prod for carrier callbacks), `ENV`,
-`ENABLE_PREBUILT_UI` (must be off in prod). The master key lives outside the DB;
-**lose it and the stored secrets are unrecoverable** — keep it in a secrets
-manager, never commit it.
-
-## API
-
-All `/v1` routes require `Authorization: Bearer <api-key>`. Secrets are
-write-only — they're never returned by any endpoint.
-
-### 1. Register connections (BYO provider keys)
+`seed-dev` prints an API key (shown once) and a `DEV_AGENT_ID`. Add `DEV_AGENT_ID` to `.env`, then:
 
 ```bash
-curl -X POST localhost:8000/v1/connections -H "Authorization: Bearer $KEY" \
-  -H 'content-type: application/json' -d '{
-  "name":"my-groq","provider_kind":"llm","provider_name":"groq",
-  "secrets":{"api_key":"gsk_..."}
-}'   # → {"id":"conn_...","name":"my-groq","provider_kind":"llm",...}  (no secret)
+python run.py
 ```
 
-Provider must be in the supported list (`GET /v1/providers`): STT `deepgram`;
-TTS `cartesia`/`openai`; LLM `groq`/`gemini`/`openrouter`/`openai`; telephony
-`plivo`. Plivo secrets are `{auth_id, auth_token, from_number}`.
+Open **http://localhost:8000**, allow the microphone, and start talking. The playground shows live transcripts and per-stage latency.
 
-### 2. Define an agent
+## Your first phone call
+
+Phone calls need a [Plivo](https://www.plivo.com) or [Twilio](https://www.twilio.com) account and a URL the carrier can reach (for local work, `ngrok http 8000`). Add `PLIVO_AUTH_ID`, `PLIVO_AUTH_TOKEN`, `PLIVO_FROM_NUMBER` and `PUBLIC_BASE_URL` to `.env` before running `seed-dev`, then start the worker next to the API. (`seed-dev` imports Plivo keys from `.env`; for Twilio, add a telephony connection through `POST /v1/connections`, described in [REFERENCE.md](REFERENCE.md).)
 
 ```bash
-curl -X POST localhost:8000/v1/agents -H "Authorization: Bearer $KEY" \
-  -H 'content-type: application/json' -d '{
-  "name":"Alex","company":"Acme Clinic",
-  "instructions":"Confirm the dental appointment; offer to reschedule if needed.",
-  "first_message":"Hi, this is Alex from Acme Clinic. Am I speaking with Priya?",
-  "stt_connection_id":"<id>","tts_connection_id":"<id>",
-  "llm_connection_id":"<id>","telephony_connection_id":"<id>",
-  "provider_settings":{"tts":{"voice_id":"...","model":"sonic-3","emotion":"warm"}}
-}'
+python -m app.worker
 ```
-
-### 3. Place an outbound call
 
 ```bash
-curl -X POST localhost:8000/v1/calls -H "Authorization: Bearer $KEY" \
-  -H 'content-type: application/json' -d '{
-  "agent_id":"<agent-id>",
-  "to_number":"+919876543210",
-  "context":{"patient_name":"Priya","appointment_time":"Tuesday at 3 PM","doctor":"Dr. Rao"}
-}'   # → {"id":"call_...","status":"dialing","provider_call_id":"..."}
+curl -X POST localhost:8000/v1/calls \
+  -H "Authorization: Bearer $OFFHOOK_KEY" \
+  -H "Idempotency-Key: first-call" \
+  -H "content-type: application/json" \
+  -d '{
+    "agent_id": "<DEV_AGENT_ID>",
+    "to_number": "+14155550123",
+    "context": {"customer_name": "Priya", "appointment_time": "Tuesday at 3 PM"}
+  }'
 ```
 
-Everything in `context` is rendered into the agent's system prompt under a
-"CALL CONTEXT" block, so the agent speaks with those facts in scope. Requires a
-telephony connection and a publicly reachable `PUBLIC_BASE_URL` for the carrier
-answer/stream webhooks (which are authed by a single-use call token).
+Everything in `context` is placed in the agent's prompt, so it can use those facts during the call. Follow the call with `GET /v1/calls/{id}`, its timeline at `/events`, and the conversation at `/transcript`.
 
-`POST /v1/calls` returns immediately with `status: queued`; a **worker** dials
-asynchronously and the call progresses through `queued → dialing → in_progress
-→ completed/failed`. Poll `GET /v1/calls/{id}` or receive webhooks. Pass an
-`Idempotency-Key` header so a retried request never double-dials.
+## What's inside
 
-### Webhooks
+| | |
+| --- | --- |
+| **Calls** | Outbound and inbound, async dial queue, idempotency keys, `queued → dialing → in_progress → completed / failed` |
+| **Agents** | Instructions, first message, voice and model per agent; built-in `record_result` and `end_call` tools; your own HTTP tools |
+| **Providers** | STT: Deepgram · TTS: Cartesia, OpenAI · LLM: Groq, Gemini, OpenAI, OpenRouter · Carriers: Plivo, Twilio |
+| **Observability** | Per-call event timeline, transcripts, stable error codes, activity feed, stats, usage metering |
+| **Security** | argon2id API keys, AES-GCM envelope encryption (env or AWS KMS master key), signed webhooks, SSRF guard, log redaction, optional Postgres RLS |
+| **Apps** | `dashboard/` console (Clerk sign-in), `docs/` API reference site |
+
+The full API, configuration and internals are in [REFERENCE.md](REFERENCE.md). [ARCHITECTURE.md](ARCHITECTURE.md) explains the design, and [RAILWAY.md](RAILWAY.md) covers deploying to Railway.
+
+## Tests
 
 ```bash
-curl -X POST localhost:8000/v1/webhooks -H "Authorization: Bearer $KEY" \
-  -H 'content-type: application/json' -d '{"url":"https://you.example.com/hook","events":[]}'
-# → {"id":"...","secret":"whsec_…","...}   (secret shown once)
+uv pip install -e ".[test]"
+createdb -O voice voice_test   # one-time; tests use their own database
+pytest
 ```
 
-Every call status transition (`call.queued/dialing/in_progress/completed/failed`)
-is delivered as a signed POST with retries (empty `events` = all). Verify the
-`X-Voice-Signature: t=<unix>,v1=<hmac>` header: HMAC-SHA256 of `"{t}.{body}"`
-with your endpoint secret (Stripe-style; reject stale timestamps).
+See [TESTING.md](TESTING.md) for the dashboard tests and more detail.
 
-### Inbound calls
+## Contributing
 
-```bash
-curl -X POST localhost:8000/v1/phone-numbers -H "Authorization: Bearer $KEY" \
-  -H 'content-type: application/json' -d '{"e164":"+14155550123","agent_id":"<id>"}'
-```
+Issues and pull requests are welcome. Good places to start:
 
-Point your Plivo number's answer URL at `https://<PUBLIC_BASE_URL>/v1/telephony/inbound`.
-When a call arrives, we map the dialed number → agent, verify the Plivo
-signature, and connect it to the same pipeline (`direction: inbound`).
+- **A new carrier** (Telnyx, Vonage): subclass `TelephonyProvider` in `app/telephony/`.
+- **A new STT, TTS or LLM provider**: add a factory in `app/providers/`.
+- **Latency work**: anything that shortens the gap before the agent starts replying.
 
-### Limits, quotas & usage
+Look for issues labelled `good first issue`, or open one to talk through an idea before building it.
 
-- **Rate limit**: per-tenant `rate_limit_per_min` (default 120) → `429` over budget.
-- **Quotas** at `POST /v1/calls`: `max_concurrent_calls` (live calls) and optional `monthly_call_cap` → `429`.
-- **Usage**: `GET /v1/usage?from=&to=` → billable `total_seconds` + `call_count` (defaults to current month).
+## License
 
-### Logging, auditing & content (SendGrid-style)
-
-Every call has a complete, queryable record — what was called, the outcome,
-error codes, and the full transcript.
-
-```bash
-curl localhost:8000/v1/calls?status=failed&direction=outbound -H "Authorization: Bearer $KEY"
-#   → activity feed (filter by status/direction/to/from/error_code/date, paginated)
-
-curl localhost:8000/v1/calls/<id>/events    -H "Authorization: Bearer $KEY"
-#   → the RAW CALL LOG: ordered timeline of call.queued → call.dialing →
-#     call.in_progress → carrier.hangup → call.completed/failed, each with ts,
-#     data, and error_code
-
-curl localhost:8000/v1/calls/<id>/transcript -H "Authorization: Bearer $KEY"
-#   → the conversation content: [{role, text, t}, ...]
-
-curl localhost:8000/v1/stats                 -H "Authorization: Bearer $KEY"
-#   → {total_calls, by_status, by_error_code, failure_rate, total_seconds, avg_seconds}
-```
-
-- **Error codes** are stable: `carrier_unauthorized`, `carrier_error`, `busy`,
-  `no_answer`, `rejected`, `invalid_number`, `config_error`, `provider_timeout`,
-  `pipeline_error`. Carrier outcomes (busy/no-answer) come from Plivo's hangup
-  callback to `/v1/telephony/status` and mark the call failed with the reason.
-- **Transcript** is captured live during the call and persisted on hang-up
-  (also included in the `call.completed` webhook).
-- The same events drive both the **timeline** and the **webhooks** — they never
-  drift (`app/events.py`).
-
-### Other endpoints
-
-- `POST/GET/PATCH/DELETE /v1/connections` · `…/agents` · `POST/GET/DELETE /v1/api-keys` · `…/webhooks` · `…/phone-numbers`
-- `GET /v1/calls` (activity) · `GET /v1/calls/{id}` · `…/events` · `…/transcript` · `GET /v1/stats` · `GET /v1/usage` · `GET /v1/providers`
-- `GET /healthz` (liveness) · `GET /readyz` (DB + migrations + master key)
-
-### Encryption at scale & RLS
-
-The master key is pluggable (`KEY_PROVIDER=env|kms`). Set `KEY_PROVIDER=kms` +
-`KMS_KEY_ID` to wrap tenant DEKs with AWS KMS (boto3, lazy-loaded). Optional
-Postgres row-level security (defense-in-depth over the repo's tenant scoping) is
-in `app/db/rls.sql` — apply it with the two-role setup it documents and set
-`ENABLE_RLS=1`.
-
-### Running the worker
-
-```bash
-python -m app.worker     # drains the dial + webhook-delivery queues
-```
-
-Run one or more alongside the API (`python run.py`). Claims use Postgres
-`FOR UPDATE SKIP LOCKED`, so multiple workers are safe; failures back off
-exponentially; a per-provider circuit breaker avoids hammering a down carrier;
-SIGTERM drains gracefully.
-
-### Browser playground (dev only)
-
-Open **http://localhost:8000/** → Pipecat's prebuilt UI (live transcripts,
-metrics/TTFB panel, event log). It runs a mic call against your seeded agent
-(`DEV_AGENT_ID`) using that agent's stored connections. Mounted only when
-`ENABLE_PREBUILT_UI=1` and `ENV!=prod`. Wiring in `app/prebuilt.py`.
-
-[SmallWebRTC]: https://docs.pipecat.ai/server/services/transport/small-webrtc
-
-## What comes back
-
-During the call the agent can call two tools:
-
-- `record_result(key, value)` — capture structured outcomes.
-- `end_call(summary)` — hang up cleanly (plays any in-flight speech first).
-
-These accumulate in a `CallOutcome` (`{data, summary, ended_by_agent}`) that
-`run_call` returns and logs on hang-up. Persisting outcomes (DB / webhook) is
-the next thing to wire up.
-
-## Tuning latency & voice quality
-
-Conversational feel is dominated by two things: **LLM time-to-first-token** (the
-gap before the bot replies) and **TTS expressiveness** (how robotic it sounds).
-With `VOICE_DEBUG_LOGGING=1`, the per-stage TTFB is printed to the console and
-shown in the prebuilt UI's metrics panel — STT and TTS are usually tens to a few
-hundred ms; if the bot feels laggy, the LLM is almost always the culprit.
-
-**Latency (LLM).** Use a fast provider. Measured TTFT on this stack:
-
-| Model | TTFT |
-| ----- | ---- |
-| `groq` / `llama-3.1-8b-instant` | **~310 ms** ✅ |
-| `groq` / `llama-3.3-70b-versatile` | ~430 ms (smarter) |
-| `openrouter` / `*:free` | 3–4 s ❌ (shared/queued — avoid for voice) |
-
-Groq has a free tier and is the default. Get a key at console.groq.com →
-`GROQ_API_KEY`. Avoid OpenRouter `:free` models — they're multi-second.
-
-**Voice (TTS).** Cartesia **`sonic-3`** is far warmer than `sonic-2`. Shape the
-delivery without code changes:
-
-- `VOICE_TTS_EMOTION` — free-form tone, e.g. `"positive and warm"`, `"excited"`, `"calm"`
-- `VOICE_TTS_SPEED` — `0.6`–`1.5` (lower = more relaxed)
-- `VOICE_TTS_VOICE_ID` — the voice itself matters most; swap for a more
-  expressive Cartesia voice if a particular one sounds flat
-- The system prompt (`app/prompts.py`) also asks for contractions and natural
-  rhythm — clipped, formal prompts sound robotic even with a good voice
-
-All of these can be set per call via the `agent` payload (`voice_id`, `llm_model`)
-or globally via env.
-
-## Layout
-
-```
-app/
-  main.py          FastAPI app: lifespan, /v1 router (require_tenant), carrier router
-  settings.py      typed, validated config (DB URL, master key, env)
-  routes.py        /v1/calls (async, idempotent) + carrier telephony webhooks
-  worker.py        background worker: drains dial + webhook queues (python -m app.worker)
-  queue.py         Postgres job queue (FOR UPDATE SKIP LOCKED)
-  reliability.py   backoff + circuit breaker
-  ratelimit.py     per-tenant fixed-window rate limit
-  events.py        emit_call_event: timeline row + webhook (audit log)
-  transcript.py    observer that captures conversation turns
-  webhooks/        signing.py · events.py (fan-out) · delivery.py (signed POST)
-  runner.py        per-call lifecycle (opener, end frame)
-  pipeline.py      STT → LLM → TTS assembly + LLM context (only pipeline shape)
-  prompts.py       system prompt (instructions + voice rules + context)
-  schemas.py       AgentConfig, CallContext
-  config.py        ResolvedCreds + VoiceConfig + SUPPORTED_PROVIDERS
-  registry.py      the name → factory Registry used by every pluggable layer
-  transport.py     browser WebRTC transport (dev/test calls)
-  prebuilt.py      Pipecat playground UI at /client (dev only)
-  admin.py         CLI: create-tenant / seed-dev
-  db/              SQLAlchemy async — engine.py, models.py, repositories.py, rls.sql
-  crypto/          envelope encryption — keyprovider.py (env + KMS KEK), envelope.py (DEK + AES-GCM)
-  auth/            apikey.py (argon2 keys), dependencies.py (require_tenant / call session)
-  security/        ssrf.py (URL guard), redaction.py (log scrubber)
-  tenancy/         resolve.py — connections → decrypted creds → VoiceConfig
-  api/             connections · agents · api_keys · webhooks · usage · phone_numbers · activity · health
-  providers/       AI legs — registered factories taking ResolvedCreds
-    stt.py · tts.py · llm.py · __init__.py (build_stt/build_tts/build_llm)
-  telephony/       PSTN carriers behind one interface
-    base.py (TelephonyProvider) · plivo.py · __init__.py (get_provider)
-  tools/           LLM-callable tools behind a registry
-    base.py (Tool, ToolContext, CallOutcome) · builtin.py · __init__.py
-alembic/           migrations  ·  docker-compose.yml  ·  .env.example
-```
-
-## Modularity — how to extend
-
-Everything pluggable is a **registry entry**: a self-contained module that
-registers itself, selected by name. You never edit a central `if/elif`.
-
-| Add a…            | Do this                                                                 |
-| ----------------- | ----------------------------------------------------------------------- |
-| **STT/TTS/LLM**   | New factory in `providers/{stt,tts,llm}.py` taking `ResolvedCreds`, `@*_registry.register("name")`; add `"name"` to `SUPPORTED_PROVIDERS` in `config.py`. |
-| **Telephony carrier** | New `telephony/<carrier>.py` subclassing `TelephonyProvider`, `@telephony_registry.register("name")`, import in `telephony/__init__.py`; add to `SUPPORTED_PROVIDERS`. |
-| **Agent tool**    | New `Tool` subclass in `tools/builtin.py` with `@tool_registry.register("name")`; add to `DEFAULT_TOOLS` or pass per call. |
-
-Factories take a `ResolvedCreds` (decrypted key + settings) — they never read
-process env, so they work per-tenant. `GET /v1/providers` lists what's
-registered + the supported allow-list.
-
-## Roadmap
-
-Phases 1–4 are done:
-- **P1** — auth + tenancy, Postgres persistence, encrypted BYO connections, SSRF + log redaction.
-- **P2** — async dial queue + worker, `GET /v1/calls/{id}`, HMAC-signed webhooks with retries, backoff + circuit breaker, graceful shutdown.
-- **P3** — per-tenant rate limits/quotas + usage metering, inbound calls (number → agent), KMS-pluggable master key, optional Postgres RLS.
-- **P4** — observability/audit: per-call event timeline (`/events`), transcript content (`/transcript`), stable error codes incl. carrier hangup causes, activity feed (`/v1/calls`) and `/v1/stats`.
-
-Possible next: load testing at scale, billing/cost on top of usage, more carriers (Twilio/Telnyx) and providers (just new registry entries), per-request provider overrides.
+[Apache-2.0](LICENSE)
