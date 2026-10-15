@@ -42,10 +42,10 @@ const stepCode = [
     "company": "Acme Clinic",
     "instructions": "Confirm the appointment; offer to reschedule if needed.",
     "first_message": "Hi, this is Alex from Acme Clinic. Am I speaking with Priya?",
-    "stt_connection_id": "conn_...",
-    "tts_connection_id": "conn_...",
-    "llm_connection_id": "conn_...",
-    "telephony_connection_id": "conn_..."
+    "stt_connection_id": "<stt-connection-id>",
+    "tts_connection_id": "<tts-connection-id>",
+    "llm_connection_id": "<llm-connection-id>",
+    "telephony_connection_id": "<telephony-connection-id>"
   }'`,
   },
   {
@@ -55,7 +55,7 @@ const stepCode = [
   -H "Idempotency-Key: confirm-priya-tue" \\
   -H "content-type: application/json" \\
   -d '{
-    "agent_id": "agt_...",
+    "agent_id": "<agent-id>",
     "to_number": "+14155550123",
     "context": {"patient_name": "Priya", "appointment_time": "Tuesday at 3 PM"}
   }'`,
@@ -110,7 +110,7 @@ python run.py`;
 
     <figure class="call-record" aria-label="Example of a call record">
       <div class="cr-head">
-        <span class="cr-id">call_7f3a91</span>
+        <span class="cr-id">8f2c4d1e-…</span>
         <span class="wd-badge">Example</span>
         <span class="wd-status wd-status--done"><span class="wd-status-dot" aria-hidden="true"></span>completed</span>
       </div>

@@ -6,31 +6,28 @@ import Endpoint from "../../components/docs/Endpoint.astro";
 import Params from "../../components/docs/Params.astro";
 ---
 
-<DocsLayout title="Tools" lead="Give your agent functions it can call <em>during</em> a call to fetch live data from your own APIs — check an order, look up stock, read a booking. You declare the function; we call your endpoint with the model's arguments and feed the result back into the conversation." slug="tools">
+<DocsLayout title="Tools" lead="Tools let your agent fetch live data from your own systems in the middle of a call, such as checking an order or reading a booking. You describe the function; Offhook calls your endpoint with the model's arguments and gives the answer back to the model." slug="tools">
         <h2 id="how">How it works</h2>
         <ol>
-          <li>You define a tool: a <code>name</code>, a <code>description</code> (this is what tells the model <em>when</em> to use it), an argument schema, and an HTTP endpoint.</li>
-          <li>You attach the tool to an <a href="/docs/agents/">agent</a> via <code>tool_ids</code>.</li>
-          <li>Mid-call, when the agent decides it needs that data, it calls the function. We issue the HTTP request to your endpoint with the model-supplied arguments and return the JSON response to the model, which keeps talking.</li>
+          <li>You define a tool: a <code>name</code>, a <code>description</code> that tells the model <em>when</em> to use it, the arguments it takes, and an HTTP endpoint.</li>
+          <li>You give the tool to an <a href="/docs/agents/">agent</a> through <code>tool_ids</code>.</li>
+          <li>During a call, when the model decides it needs that data, it calls the tool. Offhook sends the request to your endpoint with the model's arguments and passes your JSON response back to the model, which carries on talking.</li>
         </ol>
         <Callout kind="note">
-          Because the model waits for your endpoint, keep it fast. Requests are
-          bounded by the tool's <code>timeout_seconds</code> (max 20), and a good
-          agent will say "one moment, let me pull that up" before calling a tool.
+          The caller waits while your endpoint answers, so keep it fast. Each request is
+          limited by the tool's <code>timeout_seconds</code> (at most 20). It helps to tell
+          the agent, in its instructions, to say something like "one moment, let me check"
+          before using a tool.
         </Callout>
 
-        <h2 id="own-code">Running your own code as a tool</h2>
+        <h2 id="own-code">Your code, your servers</h2>
         <p>
-          A tool <em>is</em> your code — Offhook doesn't host or execute it, it
-          calls it. To run arbitrary logic (a database lookup, a calculation, a
-          call to another API), wrap that logic in a small HTTP endpoint on your
-          side and point a tool at it. Your code runs in your environment, with
-          your dependencies and your secrets; we only send the model's arguments
-          and read back the result. This is the same model Twilio, Retell, and
-          Vapi use — and it keeps the security boundary clean: your code, your
-          blast radius.
+          Offhook doesn't run your code; it calls it. To give the agent a database lookup,
+          a calculation or another API, put that logic behind a small HTTP endpoint on your
+          side and point a tool at it. Your code runs with your own dependencies and
+          secrets, and Offhook only sends the arguments and reads the result.
         </p>
-        <Code tabs={[{ label: "Your endpoint (Python)", lang: "text", code: `# Your own server — FastAPI, Flask, a Lambda, a Cloud Function, anything.
+        <Code tabs={[{ label: "Your endpoint (Python)", lang: "text", code: `# Your own server: FastAPI, Flask, a Lambda, a Cloud Function, anything.
 from fastapi import FastAPI
 
 app = FastAPI()
@@ -59,22 +56,22 @@ def check_order_status(order_id: str):
     },
     "headers": { "Authorization": "Bearer your-internal-key" }
   }'` }]} />
-        <p>Two things to get right when pointing a tool at your own code:</p>
+        <p>Two rules for the endpoint:</p>
         <ul>
-          <li><b>Public HTTPS only.</b> Requests to private, loopback, or cloud-metadata addresses are blocked. For local development, expose your endpoint through a tunnel (e.g. ngrok) and use that URL — the same way you tunnel for telephony webhooks.</li>
-          <li><b>Return fast.</b> The agent is waiting mid-conversation, so the endpoint must answer within <code>timeout_seconds</code> (max 20). For slow work, kick it off in the background and return immediately — then surface the result on a later turn or via a <a href="/docs/webhooks/">webhook</a>.</li>
+          <li><strong>It must be public HTTPS.</strong> Requests to private, loopback and cloud-metadata addresses are blocked. During local development, expose your endpoint with a tunnel such as ngrok and use that URL.</li>
+          <li><strong>It must answer within <code>timeout_seconds</code>.</strong> For slow work, start it in the background and return straight away, then report the result later, for example through a <a href="/docs/webhooks/">webhook</a>.</li>
         </ul>
 
         <h2 id="create">Create a tool</h2>
         <Endpoint method="POST" path="/v1/tools" />
         <Params rows={[
-          { name: "name", type: "string", required: true, desc: "The function name the model calls. A valid identifier, e.g. check_order_status. Unique per workspace." },
-          { name: "description", type: "string", required: true, desc: "What the tool does and when to use it. Drives whether the model calls it." },
-          { name: "parameters", type: "object", desc: "The arguments, JSON-Schema style: { properties: { ... }, required: [ ... ] }." },
-          { name: "method", type: "string", desc: "GET (default) or POST." },
-          { name: "url", type: "string", required: true, desc: "Your HTTPS endpoint. Use {param} to drop an argument into the path." },
-          { name: "headers", type: "object", desc: "Static auth headers (e.g. Authorization). Encrypted at rest and never returned." },
-          { name: "timeout_seconds", type: "int", desc: "1–20, default 10." },
+          { name: "name", type: "string", required: true, desc: "The function name the model calls: letters, digits and underscores, e.g. <code>check_order_status</code>. Must be unique within your tenant. <code>record_result</code> and <code>end_call</code> are reserved." },
+          { name: "description", type: "string", required: true, desc: "What the tool does and when to use it. This is what the model reads to decide whether to call it." },
+          { name: "parameters", type: "object", desc: "The arguments, in JSON Schema style: <code>{ \"properties\": { … }, \"required\": [ … ] }</code>." },
+          { name: "method", type: "string", desc: "<code>GET</code> (the default) or <code>POST</code>." },
+          { name: "url", type: "string", required: true, desc: "Your HTTPS endpoint. Write <code>{name}</code> in the path to insert an argument there." },
+          { name: "headers", type: "object", desc: "Fixed headers, such as <code>Authorization</code>. Stored encrypted and never returned." },
+          { name: "timeout_seconds", type: "int", desc: "1 to 20. The default is 10." },
         ]} />
         <Code tabs={[{ label: "cURL", lang: "bash", code: `curl -X POST http://localhost:8000/v1/tools \\
   -H "Authorization: Bearer $OFFHOOK_KEY" \\
@@ -93,55 +90,58 @@ def check_order_status(order_id: str):
     "headers": { "Authorization": "Bearer sk_live_…" },
     "timeout_seconds": 8
   }'` }, { label: "Response", lang: "json", code: `{
-  "id": "tool_3f9a…",
+  "id": "c4e81b2f-9a3d-4c6e-8f1b-7d2a5e9c3b10",
   "name": "check_order_status",
-  "description": "Look up an order by its ID…",
+  "description": "Look up an order by its ID and return its status, items, and delivery date.",
   "method": "GET",
   "url": "https://api.yourapp.com/orders/{order_id}",
   "parameters": { "properties": { "order_id": { "type": "string" } }, "required": ["order_id"] },
   "has_auth": true,
   "timeout_seconds": 8,
-  "created_at": "2026-06-21T10:00:00Z"
+  "created_at": "2026-10-15T10:00:00Z"
 }` }]} />
 
-        <h2 id="mapping">How arguments map to the request</h2>
-        <p>The model's arguments are placed into the request in a fixed, predictable way — they can never change the host, scheme, method, or headers:</p>
+        <h2 id="mapping">How arguments become a request</h2>
+        <p>The model's arguments only ever fill in the request. They can't change the host, scheme, method or headers.</p>
         <ul>
-          <li><b>Path placeholders.</b> Any <code>{'{name}'}</code> in the URL is replaced with that argument, URL-encoded.</li>
-          <li><b>GET.</b> Remaining arguments become the query string.</li>
-          <li><b>POST.</b> Remaining arguments become the JSON request body.</li>
+          <li><strong>Path:</strong> each <code>{'{name}'}</code> in the URL is replaced with that argument, URL-encoded.</li>
+          <li><strong>GET:</strong> the other arguments become the query string.</li>
+          <li><strong>POST:</strong> the other arguments become the JSON body.</li>
         </ul>
-        <p>So <code>check_order_status(order_id="ORD-1042")</code> above issues <code>GET https://api.yourapp.com/orders/ORD-1042</code> with your auth header.</p>
+        <p>So <code>check_order_status(order_id="ORD-1042")</code> sends <code>GET https://api.yourapp.com/orders/ORD-1042</code> with your <code>Authorization</code> header.</p>
 
-        <h2 id="attach">Attach a tool to an agent</h2>
-        <p>Pass <code>tool_ids</code> when creating the agent. The agent can then call any of its tools during a call.</p>
+        <h2 id="attach">Give a tool to an agent</h2>
+        <p>Pass <code>tool_ids</code> when you create the agent. It can then use any of those tools during a call.</p>
         <Code tabs={[{ label: "cURL", lang: "bash", code: `curl -X POST http://localhost:8000/v1/agents \\
   -H "Authorization: Bearer $OFFHOOK_KEY" \\
   -H "Content-Type: application/json" \\
   -d '{
     "name": "Order support",
     "instructions": "Help the caller with questions about their order. Use check_order_status to look up specifics.",
-    "stt_connection_id": "conn_…",
-    "tts_connection_id": "conn_…",
-    "llm_connection_id": "conn_…",
-    "tool_ids": ["tool_3f9a…"]
+    "stt_connection_id": "<stt-connection-id>",
+    "tts_connection_id": "<tts-connection-id>",
+    "llm_connection_id": "<llm-connection-id>",
+    "tool_ids": ["c4e81b2f-9a3d-4c6e-8f1b-7d2a5e9c3b10"]
   }'` }]} />
 
-        <h2 id="list">List, fetch & delete</h2>
+        <h2 id="list">List, retrieve, update and delete</h2>
         <Endpoint method="GET" path="/v1/tools" />
         <Endpoint method="GET" path="/v1/tools/{id}" />
         <Endpoint method="PATCH" path="/v1/tools/{id}" />
         <Endpoint method="DELETE" path="/v1/tools/{id}" />
-        <p>Header values are write-only — they are never returned. The response only tells you whether auth headers are set (<code>has_auth</code>).</p>
+        <p>Header values are never returned. <code>has_auth</code> tells you whether any are set.</p>
 
-        <h2 id="result">What the model receives</h2>
-        <p>A 2xx response is handed back as <code>{'{ "ok": true, "result": <your JSON> }'}</code> (truncated if very large). Any error (non-2xx, timeout, blocked URL) comes back as <code>{'{ "error": "…" }'}</code> so the agent can apologize and continue rather than the call failing.</p>
+        <h2 id="result">What the model gets back</h2>
+        <ul>
+          <li><strong>Success:</strong> <code>{'{ "ok": true, "result": <your JSON> }'}</code>. Very large responses are shortened.</li>
+          <li><strong>Your endpoint returned an error status:</strong> <code>{'{ "error": "endpoint returned HTTP 404", "body": … }'}</code>.</li>
+          <li><strong>Timeout, blocked URL or missing argument:</strong> <code>{'{ "error": "…" }'}</code>.</li>
+        </ul>
+        <p>In every error case the call carries on, so the agent can apologise and move on.</p>
 
         <Callout kind="warn">
-          Tool endpoints must be public HTTPS URLs. Requests to private,
-          loopback, or cloud-metadata addresses are blocked. Treat the data your
-          endpoint returns as untrusted input to the model — don't return secrets
-          you wouldn't want spoken aloud.
+          Treat whatever your endpoint returns as something the agent might say out loud.
+          Don't return secrets or data the caller shouldn't hear.
         </Callout>
 
 </DocsLayout>

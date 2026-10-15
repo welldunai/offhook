@@ -4,85 +4,70 @@ import Code from "../../components/docs/Code.astro";
 import Callout from "../../components/docs/Callout.astro";
 ---
 
-<DocsLayout title="Overview" lead="Offhook is a self-contained backend you can run on your own infrastructure. It is three long-running pieces — an API, a worker, and Postgres — plus two optional static front-ends. This page explains what you run and why; the <Link to=&quot;/deploying&quot;> Deploying</Link> and <Link to=&quot;/configuration&quot;> Configuration</Link> pages are the step-by-step." slug="self-hosting">
+<DocsLayout title="Self-hosting" lead="Offhook is a backend you run on your own infrastructure: an API, a worker and Postgres, plus an optional dashboard. This page explains what each piece does. <a href='/docs/deploying/'>Deploying</a> and <a href='/docs/configuration/'>Configuration</a> cover the steps." slug="self-hosting">
         <h2 id="components">What you run</h2>
-        <table class="ptable">
-          <thead><tr><th style={{ width: "22%" }}>Component</th><th style={{ width: "30%" }}>Command</th><th>Role</th></tr></thead>
-          <tbody>
-            <tr>
-              <td><span class="pname">API</span><span class="req">required</span></td>
-              <td><span class="ptype">uvicorn app.main:app</span></td>
-              <td>Serves the <code>/v1</code> REST API and the carrier webhook + media-stream endpoints. Stateless — scale horizontally behind a load balancer.</td>
-            </tr>
-            <tr>
-              <td><span class="pname">Worker</span><span class="req">required</span></td>
-              <td><span class="ptype">python -m app.worker</span></td>
-              <td>Drains the dial queue and delivers webhooks. Without it, calls never leave <code>queued</code>. Run one or more; claims use <code>FOR UPDATE SKIP LOCKED</code>, so they are safe in parallel.</td>
-            </tr>
-            <tr>
-              <td><span class="pname">Postgres</span><span class="req">required</span></td>
-              <td><span class="ptype">postgres:16</span></td>
-              <td>The only datastore — tenants, encrypted connections, agents, calls, the job queue, usage, and the event log all live here. No Redis or external broker needed.</td>
-            </tr>
-            <tr>
-              <td><span class="pname">Dashboard</span><span class="opt">optional</span></td>
-              <td><span class="ptype">static (Vite build)</span></td>
-              <td>The Offhook Console UI. Build to static files and serve from any CDN/host. Needs Clerk for sign-in.</td>
-            </tr>
-            <tr>
-              <td><span class="pname">Docs</span><span class="opt">optional</span></td>
-              <td><span class="ptype">static (Vite build)</span></td>
-              <td>This documentation site. Static SPA; serve with an <code>index.html</code> fallback.</td>
-            </tr>
-          </tbody>
-        </table>
-
+        <div class="wd-table-wrap">
+          <table>
+            <thead><tr><th>Component</th><th>Command</th><th>What it does</th></tr></thead>
+            <tbody>
+              <tr>
+                <td><strong>API</strong><span class="param-flag is-required">required</span></td>
+                <td><code>python run.py</code></td>
+                <td>Serves the <code>/v1</code> API, the carrier webhooks and the call audio stream. Keeps no state of its own, so you can run several behind a load balancer.</td>
+              </tr>
+              <tr>
+                <td><strong>Worker</strong><span class="param-flag is-required">required</span></td>
+                <td><code>python -m app.worker</code></td>
+                <td>Dials queued calls and delivers webhooks. Without it, calls stay <code>queued</code>. You can run several; each job is claimed by exactly one worker.</td>
+              </tr>
+              <tr>
+                <td><strong>Postgres</strong><span class="param-flag is-required">required</span></td>
+                <td><code>postgres:16</code></td>
+                <td>The only datastore. Tenants, encrypted connections, agents, calls, the job queue, usage and the event log all live here. No Redis or message broker needed.</td>
+              </tr>
+              <tr>
+                <td><strong>Dashboard</strong><span class="param-flag">optional</span></td>
+                <td>static site in <code>dashboard/</code></td>
+                <td>A web console for your calls, agents and keys. Build it to static files and host it anywhere. Sign-in uses Clerk.</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
         <Callout kind="note">
-          The API and worker are <strong>separate processes that each read configuration
-          at startup</strong>. They share nothing but the database. When you change
-          configuration, restart both.
+          The API and the worker are separate processes. Each reads its configuration when it
+          starts, and they share only the database. When you change configuration, restart
+          both.
         </Callout>
 
         <h2 id="architecture">How a call flows</h2>
-        <p>
-          A call is fully asynchronous, which is why the worker is mandatory:
-        </p>
+        <p>Calls are asynchronous, which is why the worker is required:</p>
         <Code tabs={[{ label: "Flow", lang: "text", code: `client ──POST /v1/calls──▶  API  ──enqueue──▶  Postgres (call_jobs)
                                                    │
                             worker ──claim job────▶─┘
                               │
                               ├─ decrypt the tenant's connection secrets
-                              ├─ dial via the carrier (Plivo / Twilio)
+                              ├─ dial through the carrier (Plivo or Twilio)
                               └─ carrier answers ──▶ webhook to PUBLIC_BASE_URL
                                                        │
-                          API media-stream WebSocket ◀─┘
+                          API audio stream (WebSocket) ◀┘
                               │
-                              └─ STT ─▶ LLM ─▶ TTS  (per-call pipeline)` }]} />
+                              └─ STT ─▶ LLM ─▶ TTS  (one pipeline per call)` }]} />
         <p>
-          Two consequences for deployment: the worker needs outbound network access to
-          the carrier and providers, and <code>PUBLIC_BASE_URL</code> must be an
-          externally reachable HTTPS address the carrier can call back on (see
-          <a href="/docs/configuration/"> Configuration</a>).
+          This has two consequences for your setup. The worker needs outbound internet access
+          to reach the carrier and the AI providers. And <code>PUBLIC_BASE_URL</code> must be an
+          HTTPS address the carrier can reach from the internet, because the carrier calls back
+          into the API when the call is answered.
         </p>
 
-        <h2 id="prerequisites">Prerequisites</h2>
+        <h2 id="prerequisites">What you need</h2>
         <ul>
-          <li><strong>Python 3.13+</strong> on the API and worker hosts (or one container image used for both).</li>
-          <li><strong>Postgres 14+</strong> (the project is tested on 16) reachable from both.</li>
-          <li><strong>A master encryption key</strong> — 32 random bytes, base64-encoded — held <em>outside</em> the database. Lose it and every stored provider secret is unrecoverable. Use a secrets manager or KMS.</li>
-          <li><strong>A public HTTPS endpoint</strong> for the API if you place real phone calls — a domain with TLS pointing at the API, used for carrier callbacks.</li>
-          <li><strong>Provider accounts</strong> for the legs you use (Deepgram, Cartesia, an LLM, and a carrier). These are stored per-tenant via <a href="/docs/connections/">connections</a>, not in server config.</li>
+          <li><strong>Python 3.13</strong> where the API and worker run, or one container image for both.</li>
+          <li><strong>Postgres</strong> that both can reach. The project is tested with Postgres 16.</li>
+          <li><strong>A master encryption key</strong>: 32 random bytes, base64-encoded, kept outside the database. If you lose it, every stored provider key is unrecoverable. Keep it in a secrets manager, or use AWS KMS.</li>
+          <li><strong>A public HTTPS address</strong> for the API, if you place real phone calls.</li>
+          <li><strong>Accounts with your providers</strong>: Deepgram, Cartesia, a language model and a carrier. Their keys go into each tenant's <a href="/docs/connections/">connections</a>, not into server configuration.</li>
         </ul>
 
-        <Callout kind="tip">
-          Credentials are bring-your-own and live encrypted in the database, never in
-          server environment variables at run time. The server only holds operational
-          config (database URL, master key, public URL). See
-          <a href="/docs/configuration/"> Configuration</a> for the full list.
-        </Callout>
-
-        <p>
-          Ready to deploy? Continue to <a href="/docs/deploying/">Deploying</a>.
-        </p>
+        <p>Ready? Continue to <a href="/docs/deploying/">Deploying</a>.</p>
 
 </DocsLayout>

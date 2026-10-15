@@ -6,42 +6,43 @@ import Endpoint from "../../components/docs/Endpoint.astro";
 import Params from "../../components/docs/Params.astro";
 ---
 
-<DocsLayout title="Calls" lead="Place outbound calls and read everything about them — status, outcome, the raw event timeline, and the transcript." slug="calls">
+<DocsLayout title="Calls" lead="Place outbound calls, then read everything about them: status, outcome, event timeline, transcript and recording." slug="calls">
         <h2 id="lifecycle">Call lifecycle</h2>
-        <p>A call moves through these statuses. Each transition emits an <a href="/docs/webhooks/">event</a>:</p>
+        <p>A call moves through these statuses, and each change sends a <a href="/docs/webhooks/">webhook event</a>:</p>
         <div class="chips">
-          <span class="chip"><b>queued</b></span><span class="chip">→</span>
-          <span class="chip"><b>dialing</b></span><span class="chip">→</span>
-          <span class="chip"><b>in_progress</b></span><span class="chip">→</span>
-          <span class="chip"><b>completed</b></span>
-          <span class="chip" style={{ marginLeft: 8 }}>or <b>failed</b></span>
+          <span class="wd-status"><span class="wd-status-dot" aria-hidden="true" />queued</span><span class="chip">→</span>
+          <span class="wd-status wd-status--dialing"><span class="wd-status-dot" aria-hidden="true" />dialing</span><span class="chip">→</span>
+          <span class="wd-status wd-status--live"><span class="wd-status-dot" aria-hidden="true" />in_progress</span><span class="chip">→</span>
+          <span class="wd-status wd-status--done"><span class="wd-status-dot" aria-hidden="true" />completed</span>
+          <span class="chip">or</span>
+          <span class="wd-status wd-status--failed"><span class="wd-status-dot" aria-hidden="true" />failed</span>
         </div>
 
         <h2 id="create">Place a call</h2>
         <Endpoint method="POST" path="/v1/calls" />
-        <p>Returns immediately with <code>status: "queued"</code>; a worker dials and the call progresses asynchronously.</p>
+        <p>Returns straight away with <code>"status": "queued"</code>. The worker then dials, and the call moves through the statuses above on its own.</p>
         <Params rows={[
-          { name: "agent_id", type: "string", required: true, desc: "The agent that will run the call." },
-          { name: "to_number", type: "string", required: true, desc: "Destination in E.164 format." },
-          { name: "from_number", type: "string", desc: "Caller ID; defaults to the telephony connection's number." },
-          { name: "context", type: "object", desc: "Arbitrary facts injected into the agent's prompt for this call." },
-          { name: "metadata", type: "object", desc: "Opaque key/values echoed back on the call; not shown to the agent." },
-          { name: "tags", type: "object", desc: `String key/value labels for organizing and searching calls, e.g. <code>{"region":"North","motive":"sales"}</code>. Up to 25 tags; filter the feed by them below. Not shown to the agent.` },
+          { name: "agent_id", type: "uuid", required: true, desc: "The agent that runs the call. It needs a telephony connection." },
+          { name: "to_number", type: "string", required: true, desc: "The number to call, in E.164 format, e.g. <code>+14155550123</code>." },
+          { name: "from_number", type: "string", desc: "The caller ID. Defaults to the telephony connection's number." },
+          { name: "context", type: "object", desc: "Facts for this call. They are added to the agent's prompt." },
+          { name: "metadata", type: "object", desc: "Your own key/value data, stored on the call. The agent never sees it." },
+          { name: "tags", type: "object", desc: "Up to 25 string labels for finding calls later, e.g. <code>{\"region\": \"North\", \"motive\": \"sales\"}</code>. Keys up to 64 characters, values up to 256. The agent never sees them." },
         ]} />
         <Params title="Headers" rows={[
-          { name: "Idempotency-Key", type: "string", desc: "Optional. Retrying with the same key returns the original call instead of dialing twice." },
+          { name: "Idempotency-Key", type: "string", desc: "Retrying a request with the same key returns the original call instead of dialing again." },
         ]} />
         <Code tabs={[{ label: "cURL", lang: "bash", code: `curl -X POST http://localhost:8000/v1/calls \\
   -H "Authorization: Bearer $OFFHOOK_KEY" \\
   -H "Idempotency-Key: order-7741" \\
   -H "Content-Type: application/json" \\
   -d '{
-    "agent_id": "agt_…",
+    "agent_id": "<agent-id>",
     "to_number": "+14155550123",
     "context": { "patient_name": "Priya" },
     "tags": { "region": "North", "motive": "sales" }
   }'` }, { label: "Response", lang: "json", code: `{
-  "id": "call_8f2c…",
+  "id": "8f2c4d1e-6b7a-4c2e-9f1d-3a5b7c9e1f20",
   "status": "queued",
   "direction": "outbound",
   "provider_call_id": null
@@ -50,88 +51,90 @@ import Params from "../../components/docs/Params.astro";
         <h2 id="get">Retrieve a call</h2>
         <Endpoint method="GET" path="/v1/calls/{id}" />
         <Code tabs={[{ label: "Response", lang: "json", code: `{
-  "id": "call_8f2c…",
+  "id": "8f2c4d1e-6b7a-4c2e-9f1d-3a5b7c9e1f20",
   "status": "completed",
   "direction": "outbound",
   "to_number": "+14155550123",
   "from_number": "+14155550100",
   "provider_call_id": "abc-123",
-  "error_code": null,
-  "outcome": { "summary": "Confirmed for Tuesday 3 PM" },
+  "outcome": { "summary": "Confirmed for Tuesday at 3 PM" },
   "error": null,
+  "error_code": null,
+  "has_recording": true,
   "tags": { "region": "North", "motive": "sales" },
-  "created_at": "2026-06-20T10:00:00Z",
-  "started_at": "2026-06-20T10:00:04Z",
-  "ended_at": "2026-06-20T10:00:42Z"
+  "created_at": "2026-10-15T10:00:00Z",
+  "started_at": "2026-10-15T10:00:04Z",
+  "ended_at": "2026-10-15T10:00:42Z"
 }` }]} />
 
         <h2 id="list">List calls</h2>
         <Endpoint method="GET" path="/v1/calls" />
-        <p>Your activity feed, newest first. Combine any of these query parameters:</p>
+        <p>Your calls, newest first. You can combine any of these query parameters:</p>
         <Params title="Query parameters" rows={[
-          { name: "status", type: "string", desc: "Filter by status, e.g. failed." },
-          { name: "direction", type: "string", desc: "outbound, inbound, or web." },
-          { name: "to_number / from_number", type: "string", desc: "Exact-match on a number." },
-          { name: "error_code", type: "string", desc: "Filter by failure code." },
-          { name: "tag", type: "string", desc: `Filter by a tag, formatted <code>key:value</code> (e.g. <code>region:North</code>). Repeat to require multiple tags — results match calls carrying <em>all</em> of them.` },
-          { name: "since / until", type: "datetime", desc: "ISO-8601 created-at range." },
-          { name: "limit / offset", type: "int", desc: "Pagination. limit ≤ 200 (default 50)." },
+          { name: "status", type: "string", desc: "Only calls with this status, e.g. <code>failed</code>." },
+          { name: "direction", type: "string", desc: "<code>outbound</code> or <code>inbound</code>." },
+          { name: "to_number, from_number", type: "string", desc: "Only calls to or from this exact number." },
+          { name: "error_code", type: "string", desc: "Only calls that failed with this <a href=\"/docs/errors/#codes\">error code</a>." },
+          { name: "tag", type: "string", desc: "Only calls with this tag, written <code>key:value</code>, e.g. <code>region:North</code>. Repeat it to require several tags at once." },
+          { name: "since, until", type: "datetime", desc: "Only calls created in this range (ISO 8601)." },
+          { name: "limit, offset", type: "int", desc: "Paging. <code>limit</code> is 50 by default, at most 200." },
         ]} />
         <Code tabs={[{ label: "cURL", lang: "bash", code: `curl "http://localhost:8000/v1/calls?status=failed&limit=20" \\
   -H "Authorization: Bearer $OFFHOOK_KEY"` }]} />
 
-        <h3 id="search-tags">Search by tags</h3>
+        <h3 id="search-tags">Find calls by tag</h3>
         <p>
-          Pass the same <code>tags</code> you set when placing the call. One
-          <code> tag</code> filters to a single label; repeat it to narrow further
-          (AND). Tag search is index-backed, so it stays fast over large feeds.
+          Use the same <code>tags</code> you set when placing the call. One <code>tag</code>
+          parameter matches one label; add more to narrow the results to calls that have all
+          of them.
         </p>
         <Code tabs={[{ label: "One tag", lang: "bash", code: `# all calls in the North region
 curl "http://localhost:8000/v1/calls?tag=region:North" \\
-  -H "Authorization: Bearer $OFFHOOK_KEY"` }, { label: "Multiple (AND)", lang: "bash", code: `# North region AND sales motive
+  -H "Authorization: Bearer $OFFHOOK_KEY"` }, { label: "Several tags", lang: "bash", code: `# North region and sales motive
 curl "http://localhost:8000/v1/calls?tag=region:North&tag=motive:sales" \\
   -H "Authorization: Bearer $OFFHOOK_KEY"` }]} />
         <Callout kind="tip">
-          Every call in the list response carries its <code>tags</code> object, so you
-          can read the labels back without fetching each call.
+          Each call in the list includes its <code>tags</code>, so you don't need to fetch
+          calls one by one to read them.
         </Callout>
 
         <h2 id="events">Event timeline</h2>
         <Endpoint method="GET" path="/v1/calls/{id}/events" />
-        <p>The raw, ordered log of everything that happened on the call — the audit trail.</p>
+        <p>Everything that happened on the call, in order. This is the call's audit trail.</p>
         <Code tabs={[{ label: "Response", lang: "json", code: `[
   { "type": "call.queued",      "ts": "…:00Z", "data": {}, "error_code": null },
-  { "type": "call.dialing",     "ts": "…:04Z", "data": { "provider_call_id": "abc-123" }, "error_code": null },
+  { "type": "call.dialing",     "ts": "…:00Z", "data": { "provider_call_id": "abc-123" }, "error_code": null },
   { "type": "call.in_progress", "ts": "…:04Z", "data": {}, "error_code": null },
   { "type": "call.completed",   "ts": "…:42Z", "data": { "duration_seconds": 38 }, "error_code": null }
 ]` }]} />
 
         <h2 id="transcript">Transcript</h2>
         <Endpoint method="GET" path="/v1/calls/{id}/transcript" />
-        <p>The conversation content, turn by turn.</p>
+        <p>What was said, turn by turn. <code>t</code> is seconds from the start of the conversation.</p>
         <Code tabs={[{ label: "Response", lang: "json", code: `{
-  "call_id": "call_8f2c…",
+  "call_id": "8f2c4d1e-6b7a-4c2e-9f1d-3a5b7c9e1f20",
   "status": "completed",
-  "summary": "Confirmed for Tuesday 3 PM",
+  "summary": "Confirmed for Tuesday at 3 PM",
   "transcript": [
     { "role": "assistant", "text": "Hi, this is Alex from Acme Clinic.", "t": 0.4 },
-    { "role": "user",      "text": "Hi, yes — that's me.",              "t": 2.1 },
+    { "role": "user",      "text": "Hi, yes, that's me.",               "t": 2.1 },
     { "role": "assistant", "text": "Great. You're confirmed for Tuesday at 3.", "t": 4.0 }
   ]
 }` }]} />
         <Callout kind="note">
-          Transcript and outcome are populated when the call ends, and are also
-          included in the <code>call.completed</code> webhook.
+          The transcript and outcome are saved when the call ends. The
+          <code>call.completed</code> webhook includes the outcome summary; fetch the
+          transcript from this endpoint.
         </Callout>
 
-        <h2 id="recording">Audio recording</h2>
+        <h2 id="recording">Recording</h2>
         <Endpoint method="GET" path="/v1/calls/{id}/recording" />
         <p>
-          Streams the full call audio as a WAV (user + agent mixed to mono). The
-          call detail's <code>has_recording</code> flag tells you whether one
-          exists. Recordings are captured automatically for phone calls.
+          The whole call as one WAV file, with both sides mixed together. Phone calls are
+          recorded automatically; <code>has_recording</code> on the call tells you whether a
+          recording exists.
         </p>
-        <Code tabs={[{ label: "cURL", lang: "bash", code: `curl http://localhost:8000/v1/calls/call_8f2c/recording \\
+        <Code tabs={[{ label: "cURL", lang: "bash", code: `curl http://localhost:8000/v1/calls/8f2c4d1e-6b7a-4c2e-9f1d-3a5b7c9e1f20/recording \\
   -H "Authorization: Bearer $OFFHOOK_KEY" -o call.wav` }]} />
 
 </DocsLayout>

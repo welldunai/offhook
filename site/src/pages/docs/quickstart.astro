@@ -4,80 +4,111 @@ import Code from "../../components/docs/Code.astro";
 import Callout from "../../components/docs/Callout.astro";
 ---
 
-<DocsLayout title="Quickstart" lead="Go from zero to a live phone call in five steps. Each step is one API request." slug="quickstart">
-        <h2 id="step-1">1. Get an API key</h2>
-        <p>Create a key from the console, or bootstrap one locally:</p>
-        <Code tabs={[{ label: "Terminal", lang: "bash", code: `python -m app.admin seed-dev\n# prints an API key (shown once) — copy it` }]} />
-        <p>Export it so the snippets below work as-is:</p>
-        <Code tabs={[{ label: "Terminal", lang: "bash", code: `export OFFHOOK_KEY="vk_live_…"` }]} />
+<DocsLayout title="Quickstart" lead="Run Offhook on your machine, talk to an agent in your browser, then place a real phone call." slug="quickstart">
+        <h2 id="requirements">What you need</h2>
+        <ul>
+          <li>Python 3.13 and <a href="https://docs.astral.sh/uv/">uv</a>.</li>
+          <li>Docker, to run Postgres.</li>
+          <li>API keys from <a href="https://deepgram.com">Deepgram</a>, <a href="https://cartesia.ai">Cartesia</a> and <a href="https://console.groq.com">Groq</a>. All three have free tiers.</li>
+          <li>For phone calls only: a <a href="https://www.plivo.com">Plivo</a> account with a number, and a way to expose your machine to the internet, such as <a href="https://ngrok.com">ngrok</a>.</li>
+        </ul>
 
-        <h2 id="step-2">2. Register your provider keys</h2>
+        <h2 id="install">1. Install and configure</h2>
+        <Code tabs={[{ label: "Terminal", lang: "bash", code: `git clone https://github.com/welldunai/offhook.git
+cd offhook
+uv venv && source .venv/bin/activate
+uv pip install -e .
+cp .env.example .env` }]} />
         <p>
-          Add a <a href="/docs/connections/">connection</a> for each leg — speech-to-text,
-          text-to-speech, the language model, and (for phone calls) telephony.
-          Secrets are encrypted at rest and never returned.
+          In <code>.env</code>, set <code>DEEPGRAM_API_KEY</code>, <code>CARTESIA_API_KEY</code>,
+          <code>GROQ_API_KEY</code> and a master encryption key, which you can generate with:
         </p>
-        <Code tabs={[{ label: "cURL", lang: "bash", code: `curl -X POST http://localhost:8000/v1/connections \\
-  -H "Authorization: Bearer $OFFHOOK_KEY" \\
-  -H "Content-Type: application/json" \\
-  -d '{
-    "name": "my-groq",
-    "provider_kind": "llm",
-    "provider_name": "groq",
-    "secrets": { "api_key": "gsk_…" }
-  }'` }]} />
-        <p>Repeat for <code>stt</code> (deepgram), <code>tts</code> (cartesia), and <code>telephony</code> (plivo). Note each returned <code>id</code>.</p>
+        <Code tabs={[{ label: "Terminal", lang: "bash", code: `python -c "import os,base64;print(base64.b64encode(os.urandom(32)).decode())"
+# paste the output into .env as MASTER_ENCRYPTION_KEY` }]} />
 
-        <h2 id="step-3">3. Create an agent</h2>
-        <p>An <a href="/docs/agents/">agent</a> ties instructions and a voice to the connections it runs on.</p>
-        <Code tabs={[{ label: "cURL", lang: "bash", code: `curl -X POST http://localhost:8000/v1/agents \\
-  -H "Authorization: Bearer $OFFHOOK_KEY" \\
-  -H "Content-Type: application/json" \\
-  -d '{
-    "name": "Alex",
-    "company": "Acme Clinic",
-    "instructions": "Confirm the appointment. Offer to reschedule if needed.",
-    "first_message": "Hi, this is Alex from Acme Clinic.",
-    "stt_connection_id": "conn_stt",
-    "tts_connection_id": "conn_tts",
-    "llm_connection_id": "conn_llm",
-    "telephony_connection_id": "conn_tel"
-  }'` }]} />
-
-        <h2 id="step-4">4. Place a call</h2>
+        <h2 id="tenant">2. Start Postgres and create a dev tenant</h2>
+        <Code tabs={[{ label: "Terminal", lang: "bash", code: `docker compose up -d
+alembic upgrade head
+python -m app.admin seed-dev --voice-id 05a69c2d-457a-4802-8f91-628cb158b522` }]} />
         <p>
-          Hand over a number, the agent, and any per-call <code>context</code>. The call
-          is queued instantly and dialed by a background worker.
+          <code>seed-dev</code> creates a tenant, stores the provider keys from <code>.env</code>
+          as encrypted <a href="/docs/connections/">connections</a>, creates a demo
+          <a href="/docs/agents/">agent</a>, and prints two values:
         </p>
+        <ul>
+          <li>An <strong>API key</strong>, shown once. Export it so the examples below work as written: <code>export OFFHOOK_KEY="vk_dev_…"</code></li>
+          <li>A <strong>DEV_AGENT_ID</strong>. Add it to <code>.env</code>.</li>
+        </ul>
+        <Callout kind="note">
+          <code>seed-dev</code> is for local development only. On a real deployment, create
+          the first tenant with <code>create-tenant</code> and add connections through the API.
+          See <a href="/docs/deploying/">Deploying</a>.
+        </Callout>
+
+        <h2 id="browser">3. Talk to the agent in your browser</h2>
+        <Code tabs={[{ label: "Terminal", lang: "bash", code: `python run.py` }]} />
+        <p>
+          Open <code>http://localhost:8000</code>, allow the microphone and start talking.
+          The playground runs the same pipeline as a phone call over WebRTC, and shows live
+          transcripts and the latency of each stage.
+        </p>
+
+        <h2 id="phone">4. Place a phone call</h2>
+        <p>Phone calls need three more things:</p>
+        <ul>
+          <li><strong>Carrier keys.</strong> Add <code>PLIVO_AUTH_ID</code>, <code>PLIVO_AUTH_TOKEN</code> and <code>PLIVO_FROM_NUMBER</code> to <code>.env</code> before running <code>seed-dev</code>, so the demo agent gets a telephony connection. For Twilio, add a telephony connection through the API instead.</li>
+          <li><strong>A public URL.</strong> The carrier calls back into Offhook when the call is answered. Run <code>ngrok http 8000</code> and set <code>PUBLIC_BASE_URL</code> in <code>.env</code> to the https address it prints.</li>
+          <li><strong>The worker.</strong> It dials queued calls and delivers webhooks. Run <code>python -m app.worker</code> in a second terminal.</li>
+        </ul>
+        <p>Restart <code>python run.py</code> so it picks up the new <code>.env</code>, then place the call:</p>
         <Code tabs={[{ label: "cURL", lang: "bash", code: `curl -X POST http://localhost:8000/v1/calls \\
   -H "Authorization: Bearer $OFFHOOK_KEY" \\
+  -H "Idempotency-Key: first-call" \\
   -H "Content-Type: application/json" \\
   -d '{
-    "agent_id": "agt_…",
+    "agent_id": "<DEV_AGENT_ID>",
     "to_number": "+14155550123",
-    "context": { "patient_name": "Priya", "appointment": "Tuesday 3 PM" }
-  }'`}, { label: "Response", lang: "json", code: `{
-  "id": "call_8f2c…",
+    "context": { "patient_name": "Priya", "appointment_time": "Tuesday at 3 PM" }
+  }'` }, { label: "Response", lang: "json", code: `{
+  "id": "8f2c4d1e-6b7a-4c2e-9f1d-3a5b7c9e1f20",
   "status": "queued",
   "direction": "outbound",
   "provider_call_id": null
 }` }]} />
         <Callout kind="note">
-          Everything in <code>context</code> is injected into the agent's prompt, so it
-          speaks with those facts in mind.
+          Everything in <code>context</code> is added to the agent's prompt, so the agent
+          knows those facts during the call.
         </Callout>
 
-        <h2 id="step-5">5. Get the result</h2>
-        <p>Poll the call, or — better — subscribe to <a href="/docs/webhooks/">webhooks</a>. When it ends you get the outcome, transcript, and a full event log.</p>
-        <Code tabs={[{ label: "cURL", lang: "bash", code: `curl http://localhost:8000/v1/calls/call_8f2c \\
+        <h2 id="result">5. Get the result</h2>
+        <p>
+          Fetch the call, or subscribe to <a href="/docs/webhooks/">webhooks</a> to be told
+          when it changes. Once the call ends, it has an outcome, a transcript and a full
+          event log.
+        </p>
+        <Code tabs={[{ label: "cURL", lang: "bash", code: `curl http://localhost:8000/v1/calls/8f2c4d1e-6b7a-4c2e-9f1d-3a5b7c9e1f20 \\
   -H "Authorization: Bearer $OFFHOOK_KEY"` }, { label: "Response", lang: "json", code: `{
-  "id": "call_8f2c…",
+  "id": "8f2c4d1e-6b7a-4c2e-9f1d-3a5b7c9e1f20",
   "status": "completed",
-  "duration_seconds": 38,
+  "direction": "outbound",
+  "to_number": "+14155550123",
+  "from_number": "+14155550100",
+  "provider_call_id": "abc-123",
+  "outcome": { "summary": "Confirmed for Tuesday at 3 PM" },
+  "error": null,
   "error_code": null,
-  "provider_call_id": "abc-123"
+  "has_recording": true,
+  "tags": {},
+  "created_at": "2026-10-15T10:00:00Z",
+  "started_at": "2026-10-15T10:00:04Z",
+  "ended_at": "2026-10-15T10:00:42Z"
 }` }]} />
 
-        <p>That's the whole loop. From here, read the <a href="/docs/calls/">Calls reference</a> or wire up <a href="/docs/webhooks/">webhooks</a>.</p>
+        <h2 id="next">Next steps</h2>
+        <ul>
+          <li><a href="/docs/connections/">Connections</a> and <a href="/docs/agents/">Agents</a>: set up your own agent instead of the demo one.</li>
+          <li><a href="/docs/calls/">Calls</a>: everything you can read about a call.</li>
+          <li><a href="/docs/self-hosting/">Self-hosting</a>: run Offhook in production.</li>
+        </ul>
 
 </DocsLayout>

@@ -4,18 +4,15 @@ import Code from "../../components/docs/Code.astro";
 import Endpoint from "../../components/docs/Endpoint.astro";
 ---
 
-<DocsLayout title="Logs & analytics" lead="Every call leaves a complete, queryable trail: an event timeline, the transcript, aggregate stats, and metered usage." slug="logs">
-        <h2 id="timeline">Per-call audit log</h2>
-        <p>
-          The raw event timeline and transcript for a single call are documented
-          under <a href="/docs/calls/">Calls</a>:
-        </p>
+<DocsLayout title="Logs and analytics" lead="Every call leaves a full record you can query: its event timeline and transcript, plus totals across all your calls and the seconds you've used." slug="logs">
+        <h2 id="timeline">One call</h2>
+        <p>The event timeline and transcript for a single call are covered under <a href="/docs/calls/#events">Calls</a>:</p>
         <Endpoint method="GET" path="/v1/calls/{id}/events" />
         <Endpoint method="GET" path="/v1/calls/{id}/transcript" />
 
         <h2 id="stats">Stats</h2>
         <Endpoint method="GET" path="/v1/stats" />
-        <p>Aggregate metrics over a window (defaults to the current calendar month). Pass <code>since</code> / <code>until</code> (ISO-8601) to change the range.</p>
+        <p>Totals across your calls. By default this covers the current calendar month; pass <code>since</code> and <code>until</code> (ISO 8601) for another range.</p>
         <Code tabs={[{ label: "cURL", lang: "bash", code: `curl http://localhost:8000/v1/stats \\
   -H "Authorization: Bearer $OFFHOOK_KEY"` }, { label: "Response", lang: "json", code: `{
   "total_calls": 1284,
@@ -28,14 +25,17 @@ import Endpoint from "../../components/docs/Endpoint.astro";
 
         <h2 id="usage">Usage</h2>
         <Endpoint method="GET" path="/v1/usage" />
-        <p>Billable seconds and call count for a window (defaults to the current month).</p>
+        <p>
+          Billable seconds and number of calls. By default this covers the current calendar
+          month; pass <code>from_</code> and <code>to</code> (ISO 8601) for another range.
+        </p>
         <Code tabs={[{ label: "Response", lang: "json", code: `{ "total_seconds": 41230, "call_count": 1180 }` }]} />
 
-        <h2 id="dashboard">Or use the console</h2>
+        <h2 id="dashboard">In the dashboard</h2>
         <p>
-          Everything here is also rendered in the <a href="http://localhost:5273">Offhook console</a> —
-          an activity feed, per-call timelines and transcripts, and charts — with no
-          code required.
+          If you run the optional dashboard, it shows the same information without any
+          code: a call list, each call's timeline and transcript, and charts. See
+          <a href="/docs/self-hosting/#components">Self-hosting</a>.
         </p>
 
 </DocsLayout>

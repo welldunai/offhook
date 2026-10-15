@@ -6,27 +6,29 @@ import Endpoint from "../../components/docs/Endpoint.astro";
 import Params from "../../components/docs/Params.astro";
 ---
 
-<DocsLayout title="Connections" lead="A connection stores one provider credential — encrypted at rest and used by your agents. Bring your own keys; Offhook never marks up provider usage." slug="connections">
+<DocsLayout title="Connections" lead="A connection stores one provider credential, encrypted, for your agents to use. You pay your providers directly; Offhook adds nothing on top." slug="connections">
         <h2 id="providers">Supported providers</h2>
-        <p>A connection has a <code>provider_kind</code> and a <code>provider_name</code> from this allow-list:</p>
-        <table class="ptable">
-          <thead><tr><th>Kind</th><th>Providers</th><th>Secret fields</th></tr></thead>
-          <tbody>
-            <tr><td class="pname">stt</td><td><code>deepgram</code></td><td><code>api_key</code></td></tr>
-            <tr><td class="pname">tts</td><td><code>cartesia</code>, <code>openai</code></td><td><code>api_key</code></td></tr>
-            <tr><td class="pname">llm</td><td><code>groq</code>, <code>gemini</code>, <code>openrouter</code>, <code>openai</code></td><td><code>api_key</code></td></tr>
-            <tr><td class="pname">telephony</td><td><code>plivo</code>, <code>twilio</code></td><td>plivo: <code>auth_id</code>, <code>auth_token</code>, <code>from_number</code><br/>twilio: <code>account_sid</code>, <code>auth_token</code>, <code>from_number</code></td></tr>
-          </tbody>
-        </table>
-        <Callout kind="note">Call <code>GET /v1/providers</code> for the live allow-list your deployment supports.</Callout>
+        <p>Each connection has a <code>provider_kind</code> and a <code>provider_name</code> from this list:</p>
+        <div class="wd-table-wrap">
+          <table>
+            <thead><tr><th>Kind</th><th>Providers</th><th>Secret fields</th></tr></thead>
+            <tbody>
+              <tr><td><code>stt</code></td><td><code>deepgram</code></td><td><code>api_key</code></td></tr>
+              <tr><td><code>tts</code></td><td><code>cartesia</code>, <code>openai</code></td><td><code>api_key</code>; Cartesia also takes <code>voice_id</code></td></tr>
+              <tr><td><code>llm</code></td><td><code>groq</code>, <code>gemini</code>, <code>openrouter</code>, <code>openai</code></td><td><code>api_key</code></td></tr>
+              <tr><td><code>telephony</code></td><td><code>plivo</code>, <code>twilio</code></td><td>Plivo: <code>auth_id</code>, <code>auth_token</code>, <code>from_number</code><br />Twilio: <code>account_sid</code>, <code>auth_token</code>, <code>from_number</code></td></tr>
+            </tbody>
+          </table>
+        </div>
+        <Callout kind="note"><code>GET /v1/providers</code> returns the list your deployment supports.</Callout>
 
         <h2 id="create">Create a connection</h2>
         <Endpoint method="POST" path="/v1/connections" />
         <Params rows={[
-          { name: "name", type: "string", required: true, desc: "Unique, human-friendly label." },
-          { name: "provider_kind", type: "enum", required: true, desc: "One of stt, tts, llm, telephony." },
-          { name: "provider_name", type: "string", required: true, desc: "A provider from the allow-list above." },
-          { name: "secrets", type: "object", required: true, desc: "Provider secret fields (see table). Write-only — never returned." },
+          { name: "name", type: "string", required: true, desc: "A label for the connection. Must be unique within your tenant." },
+          { name: "provider_kind", type: "string", required: true, desc: "One of <code>stt</code>, <code>tts</code>, <code>llm</code> or <code>telephony</code>." },
+          { name: "provider_name", type: "string", required: true, desc: "A provider from the table above." },
+          { name: "secrets", type: "object", required: true, desc: "The provider's secret fields from the table above. Never returned." },
         ]} />
         <Code tabs={[{ label: "cURL", lang: "bash", code: `curl -X POST http://localhost:8000/v1/connections \\
   -H "Authorization: Bearer $OFFHOOK_KEY" \\
@@ -41,24 +43,25 @@ import Params from "../../components/docs/Params.astro";
       "from_number": "+14155550100"
     }
   }'` }, { label: "Response", lang: "json", code: `{
-  "id": "conn_…",
+  "id": "6a1d3f8e-2c4b-4a9e-b7d1-0e5f3c8a2b61",
   "name": "my-plivo",
   "provider_kind": "telephony",
   "provider_name": "plivo",
-  "created_at": "2026-06-20T10:00:00Z"
+  "created_at": "2026-10-15T10:00:00Z"
 }` }]} />
+        <p>Creating a connection with a name you already use returns <code>409</code>.</p>
 
-        <h2 id="list">List &amp; retrieve</h2>
+        <h2 id="list">List and retrieve</h2>
         <Endpoint method="GET" path="/v1/connections" />
         <Endpoint method="GET" path="/v1/connections/{id}" />
-        <p>Both return metadata only — secrets are never included in any response.</p>
+        <p>Both return the fields shown above. Secrets are never included in any response.</p>
 
         <h2 id="update">Rotate a secret</h2>
         <Endpoint method="PATCH" path="/v1/connections/{id}" />
-        <p>Send a new <code>secrets</code> object (and/or <code>name</code>) to re-encrypt the credential in place.</p>
+        <p>Send a new <code>secrets</code> object, a new <code>name</code>, or both. The new secret is encrypted in place, and agents using the connection pick it up on their next call.</p>
 
-        <h2 id="delete">Delete</h2>
+        <h2 id="delete">Delete a connection</h2>
         <Endpoint method="DELETE" path="/v1/connections/{id}" />
-        <p>Returns <code>409</code> if an agent still references the connection.</p>
+        <p>Returns <code>409</code> while an agent still uses the connection. Delete that agent first.</p>
 
 </DocsLayout>

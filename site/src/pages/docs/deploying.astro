@@ -4,28 +4,45 @@ import Code from "../../components/docs/Code.astro";
 import Callout from "../../components/docs/Callout.astro";
 ---
 
-<DocsLayout title="Deploying" lead="A concrete path to a running self-hosted deployment: build one image, run the API and worker from it against Postgres, apply migrations, bootstrap a tenant, and put TLS in front. Docker Compose and systemd recipes are both below." slug="deploying">
-        <h2 id="image">1. Build an image</h2>
-        <p>The same image runs both the API and the worker — they only differ by command.</p>
+<DocsLayout title="Deploying" lead="One way to get a production deployment running: build the image, run the API and worker against Postgres, apply migrations, create your first tenant, and put HTTPS in front. There are recipes for Docker Compose and for systemd." slug="deploying">
+        <h2 id="image">1. Build the image</h2>
+        <p>
+          The repository includes a <code>Dockerfile</code>. The same image runs both the API
+          and the worker; only the command differs. It also installs two system libraries that
+          the WebRTC dependency loads at startup, so build from this file rather than a bare
+          Python image.
+        </p>
         <Code tabs={[{ label: "Dockerfile", lang: "text", code: `FROM python:3.13-slim
+
+# libgl1/libglib2.0-0: opencv-python (pulled in transitively via aiortc, used
+# by pipecat's WebRTC transport) needs libGL.so.1 at import time.
+RUN apt-get update && apt-get install -y --no-install-recommends \\
+        libgl1 \\
+        libglib2.0-0 \\
+    && rm -rf /var/lib/apt/lists/*
+
 WORKDIR /app
 
 COPY pyproject.toml README.md ./
-COPY app ./app
-COPY alembic ./alembic
+COPY run.py ./
 COPY alembic.ini ./
+COPY alembic ./alembic
+COPY app ./app
 
 RUN pip install --no-cache-dir -e .
 
+ENV PYTHONUNBUFFERED=1
+
 EXPOSE 8000
-# Default command runs the API; the worker overrides it (see compose).
-CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000"]` }]} />
+
+# Runs the API by default; the worker overrides the command.
+CMD ["python", "run.py"]` }]} />
 
         <h2 id="compose">2. Run the stack</h2>
         <p>
-          A minimal production Compose file: Postgres, the API, and a worker. Put your
-          production settings in <code>.env</code> (see <a href="/docs/configuration/">Configuration</a>)
-          — both app services load it.
+          A minimal Compose file with Postgres, the API and one worker. Put your production
+          settings in <code>.env</code> (see <a href="/docs/configuration/">Configuration</a>);
+          both services read it.
         </p>
         <Code tabs={[{ label: "docker-compose.yml", lang: "text", code: `services:
   postgres:
@@ -50,7 +67,6 @@ CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000"]` }]} />
     depends_on:
       postgres:
         condition: service_healthy
-    command: uvicorn app.main:app --host 0.0.0.0 --port 8000
 
   worker:
     build: .
@@ -63,40 +79,38 @@ CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000"]` }]} />
 volumes:
   pgdata:` }]} />
         <Callout kind="warn">
-          Point <code>DATABASE_URL</code> at the <code>postgres</code> service host, e.g.
-          <code> postgresql+asyncpg://voice:…@postgres:5432/voice</code> — not
-          <code> localhost</code>, which inside a container is the container itself.
+          Inside Compose, point <code>DATABASE_URL</code> at the <code>postgres</code> service,
+          e.g. <code>postgresql+asyncpg://voice:…@postgres:5432/voice</code>. Inside a
+          container, <code>localhost</code> means the container itself.
         </Callout>
 
         <h2 id="migrations">3. Apply migrations</h2>
         <p>
-          Migrations are <strong>not</strong> run at app boot — run them explicitly on
-          deploy (and on every upgrade) as a one-off task before starting traffic.
+          The app doesn't migrate the database when it starts. Run migrations yourself on the
+          first deploy and on every upgrade, before the new version takes traffic:
         </p>
         <Code tabs={[{ label: "Terminal", lang: "bash", code: `docker compose run --rm api alembic upgrade head` }]} />
 
-        <h2 id="bootstrap">4. Bootstrap the first tenant</h2>
+        <h2 id="bootstrap">4. Create the first tenant</h2>
         <p>
-          Creating connections via the API needs an API key, but you have none yet. The
-          admin CLI resolves that chicken-and-egg: <code>create-tenant</code> mints the
-          first tenant and key.
+          You need an API key to create anything through the API, so the first tenant and key
+          come from the admin command line:
         </p>
         <Code tabs={[{ label: "Terminal", lang: "bash", code: `docker compose run --rm api python -m app.admin create-tenant \\
   --name "Acme" --slug acme
-# prints an API key — shown ONCE. Store it in your secrets manager.` }]} />
+# prints an API key, shown once: store it in your secrets manager` }]} />
         <p>
-          From there, register <a href="/docs/connections/">connections</a> and
-          <a href="/docs/agents/"> agents</a> over the API. (<code>seed-dev</code> exists
-          too, but it imports provider keys from the environment and is meant for local
-          development, not production.)
+          Then add <a href="/docs/connections/">connections</a> and
+          <a href="/docs/agents/">agents</a> through the API. (<code>seed-dev</code> also exists,
+          but it copies provider keys from the environment and is meant for local development.)
         </p>
 
-        <h2 id="proxy">5. TLS &amp; reverse proxy</h2>
+        <h2 id="proxy">5. Put HTTPS in front</h2>
         <p>
-          Terminate TLS in front of the API and forward to it. The media stream is a
+          Terminate TLS in a reverse proxy and forward to the API. The call audio arrives over a
           WebSocket, so the proxy must allow connection upgrades on
-          <code> /v1/telephony/stream</code>. Set <code>PUBLIC_BASE_URL</code> to this
-          public HTTPS origin — carriers fetch the answer webhook from it.
+          <code>/v1/telephony/stream</code>. Set <code>PUBLIC_BASE_URL</code> to this public
+          HTTPS address; carriers fetch the answer webhook from it.
         </p>
         <Code tabs={[{ label: "nginx", lang: "text", code: `map $http_upgrade $connection_upgrade {
   default upgrade;
@@ -115,21 +129,20 @@ server {
     proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
     proxy_set_header X-Forwarded-Proto $scheme;
 
-    # WebSocket upgrade for the carrier media stream
+    # WebSocket upgrade for the carrier audio stream
     proxy_set_header Upgrade $http_upgrade;
     proxy_set_header Connection $connection_upgrade;
     proxy_read_timeout 3600s;
   }
 }` }]} />
         <Callout kind="note">
-          The app derives callback URLs from <code>PUBLIC_BASE_URL</code>, not from
-          request headers, so a misconfigured <code>X-Forwarded-Host</code> can't
-          redirect carrier traffic. Just make sure <code>PUBLIC_BASE_URL</code> matches
-          the real public origin.
+          Callback URLs are built from <code>PUBLIC_BASE_URL</code>, never from request
+          headers, so a wrong <code>X-Forwarded-Host</code> can't send carrier traffic
+          elsewhere. Just make sure <code>PUBLIC_BASE_URL</code> is your real public address.
         </Callout>
 
-        <h2 id="systemd">Alternative: systemd (no Docker)</h2>
-        <p>Install the package into a virtualenv, then run two units from it.</p>
+        <h2 id="systemd">Without Docker: systemd</h2>
+        <p>Install the package into a virtualenv and run two services from it.</p>
         <Code tabs={[{ label: "offhook-api.service", lang: "text", code: `[Unit]
 Description=Offhook API
 After=network.target
@@ -150,7 +163,7 @@ After=network.target
 WorkingDirectory=/opt/offhook
 EnvironmentFile=/opt/offhook/.env
 ExecStart=/opt/offhook/.venv/bin/python -m app.worker
-# The worker drains in-flight jobs on SIGTERM; give it time.
+# The worker finishes in-flight jobs on SIGTERM; give it time.
 TimeoutStopSec=45
 Restart=always
 User=offhook
@@ -158,33 +171,33 @@ User=offhook
 [Install]
 WantedBy=multi-user.target` }]} />
 
-        <h2 id="scaling">Scaling &amp; rollout</h2>
+        <h2 id="scaling">Scaling and upgrades</h2>
         <ul>
-          <li><strong>API:</strong> stateless — run multiple replicas behind the load balancer. Add uvicorn workers with <code>--workers N</code> or run more containers.</li>
-          <li><strong>Worker:</strong> run several for throughput. Job claims use <code>FOR UPDATE SKIP LOCKED</code>, so they never double-dial; a per-carrier circuit breaker and exponential backoff are built in.</li>
-          <li><strong>Graceful shutdown:</strong> workers finish in-flight jobs on <code>SIGTERM</code> — allow ~30–45s before <code>SIGKILL</code> (the systemd unit above sets this).</li>
-          <li><strong>Upgrades:</strong> run <code>alembic upgrade head</code> once, then roll the API and worker. Keep migrations backward-compatible for zero-downtime.</li>
+          <li><strong>API:</strong> keeps no state, so run more instances behind the load balancer, or more uvicorn processes with <code>--workers N</code>.</li>
+          <li><strong>Worker:</strong> run several for more throughput. Each job is claimed by exactly one worker (<code>FOR UPDATE SKIP LOCKED</code>), so nothing is dialed twice. Failed dials are retried with increasing delays, and a circuit breaker stops hammering a carrier that is down.</li>
+          <li><strong>Shutdown:</strong> on <code>SIGTERM</code>, workers finish what they're doing before exiting. Allow 30 to 45 seconds before <code>SIGKILL</code>; the systemd unit above does.</li>
+          <li><strong>Upgrades:</strong> run <code>alembic upgrade head</code> once, then restart the API and the workers. Keep migrations backward-compatible if you want to upgrade without downtime.</li>
         </ul>
 
         <h2 id="health">Health checks</h2>
-        <p>Wire these into your load balancer and orchestrator probes:</p>
+        <p>Point your load balancer and orchestrator at these:</p>
         <Code tabs={[{ label: "Terminal", lang: "bash", code: `curl https://api.your-domain.com/healthz
-# {"status":"ok"}                       liveness — process is up
+# {"status":"ok"}                       the process is up
 
 curl https://api.your-domain.com/readyz
-# {"status":"ready","checks":{          readiness — gate traffic on this
-#   "database":"ok",                    DB reachable
-#   "migrations":"ok",                  schema at head revision
-#   "master_key":"ok"}}                 master key present and usable` }]} />
+# {"status":"ready","checks":{          ready for traffic
+#   "database":"ok",                    the database is reachable
+#   "migrations":"ok",                  the schema is up to date
+#   "master_key":"ok"}}                 the master key works` }]} />
         <Callout kind="tip">
-          Use <code>/readyz</code> as the readiness gate — it returns non-ready (503)
-          when the database is down, migrations are behind, or the master key is missing,
-          so a half-configured instance never receives traffic.
+          Use <code>/readyz</code> to decide when an instance gets traffic. It returns
+          <code>503</code> if the database is down, migrations are behind or the master key is
+          missing, so a half-configured instance never serves requests.
         </Callout>
 
         <p>
-          Next: lock down <a href="/docs/configuration/">Configuration</a> for production —
-          required variables, the master key, KMS, and row-level security.
+          Next: <a href="/docs/configuration/">Configuration</a>, for the required settings,
+          the master key, AWS KMS and row-level security.
         </p>
 
 </DocsLayout>

@@ -5,42 +5,44 @@ import Callout from "../../components/docs/Callout.astro";
 import Endpoint from "../../components/docs/Endpoint.astro";
 import Params from "../../components/docs/Params.astro";
 const EVENTS = [
-  // [event, status pill modifier ("" = neutral), description]
-  ["call.queued", "", "Call accepted and queued to dial."],
+  // [event, status pill modifier ("" = neutral), when it is sent]
+  ["call.queued", "", "The call was accepted and is waiting to be dialed."],
   ["call.dialing", "wd-status--dialing", "The carrier is dialing the number."],
-  ["call.in_progress", "wd-status--live", "Connected — the conversation is live."],
-  ["call.completed", "wd-status--done", "Ended normally. Includes outcome + transcript."],
-  ["call.failed", "wd-status--failed", "Ended in error. Includes an error_code."],
+  ["call.in_progress", "wd-status--live", "The call connected and the conversation is live."],
+  ["call.completed", "wd-status--done", "The call ended normally. Includes the outcome summary, duration and number of turns."],
+  ["call.failed", "wd-status--failed", "The call ended in an error. Includes an error_code."],
   ["call.received", "", "An inbound call arrived on one of your numbers."],
-  ["carrier.hangup", "", "The carrier reported a hangup cause (busy, no-answer…)."],
+  ["carrier.hangup", "", "The carrier reported why the call ended (busy, no answer and so on)."],
 ];
 ---
 
-<DocsLayout title="Webhooks" lead="Receive a signed HTTP callback for every call event, instead of polling. Deliveries are retried with exponential backoff until they succeed." slug="webhooks">
+<DocsLayout title="Webhooks" lead="Get a signed HTTP request for every call event instead of polling. Failed deliveries are retried with increasing delays, up to 8 attempts." slug="webhooks">
         <h2 id="register">Register an endpoint</h2>
         <Endpoint method="POST" path="/v1/webhooks" />
         <Params rows={[
-          { name: "url", type: "string", required: true, desc: "Public https URL to receive POSTs. Validated for SSRF at write time." },
-          { name: "events", type: "string[]", desc: "Event types to subscribe to. Empty = all events." },
+          { name: "url", type: "string", required: true, desc: "A public HTTPS URL that receives the POSTs. Private and loopback addresses are rejected." },
+          { name: "events", type: "string[]", desc: "The event types to send. Leave it empty to get every event." },
         ]} />
         <Code tabs={[{ label: "cURL", lang: "bash", code: `curl -X POST http://localhost:8000/v1/webhooks \\
   -H "Authorization: Bearer $OFFHOOK_KEY" \\
   -H "Content-Type: application/json" \\
   -d '{ "url": "https://you.example.com/hook", "events": [] }'` }, { label: "Response", lang: "json", code: `{
-  "id": "whk_…",
+  "id": "2f7b9d4a-8c1e-4b3f-a6d2-9e5c1f7a3b80",
   "url": "https://you.example.com/hook",
   "events": [],
   "enabled": true,
-  "secret": "whsec_…"
+  "secret": "whsec_…",
+  "created_at": "2026-10-15T10:00:00Z"
 }` }]} />
         <Callout kind="warn">
-          The <code>secret</code> is returned once. Use it to verify signatures (below).
+          The <code>secret</code> is shown only in this response. You need it to check
+          signatures, so store it now.
         </Callout>
 
         <h2 id="events">Event types</h2>
         <div class="wd-table-wrap">
           <table class="events">
-            <thead><tr><th>Event</th><th>When</th></tr></thead>
+            <thead><tr><th>Event</th><th>Sent when</th></tr></thead>
             <tbody>
               {EVENTS.map(([ev, cls, d]) => (
                 <tr>
@@ -51,31 +53,32 @@ const EVENTS = [
             </tbody>
           </table>
         </div>
-          ))}
-        </div>
 
         <h2 id="payload">Payload</h2>
-        <p>Each delivery is a POST with this JSON body and these headers:</p>
+        <p>Each delivery is a POST with a JSON body like this, and these headers:</p>
         <Code tabs={[{ label: "Body", lang: "json", code: `{
-  "id": "evt_…",
+  "id": "…",
   "event": "call.completed",
-  "created": 1750412445,
+  "created": 1792065645,
   "data": {
-    "call_id": "call_8f2c…",
+    "call_id": "8f2c4d1e-6b7a-4c2e-9f1d-3a5b7c9e1f20",
     "status": "completed",
-    "summary": "Confirmed for Tuesday 3 PM",
-    "duration_seconds": 38
+    "summary": "Confirmed for Tuesday at 3 PM",
+    "duration_seconds": 38,
+    "turns": 6,
+    "error": null
   }
 }` }, { label: "Headers", lang: "text", code: `X-Voice-Event:     call.completed
-X-Voice-Delivery:  evt_…
-X-Voice-Signature: t=1750412445,v1=4f1c…` }]} />
+X-Voice-Delivery:  <delivery id>
+X-Voice-Signature: t=1792065645,v1=4f1c…` }]} />
+        <p>Your endpoint should reply with any <code>2xx</code> status. Anything else counts as a failure and is retried.</p>
 
-        <h2 id="verify">Verify the signature</h2>
+        <h2 id="verify">Check the signature</h2>
         <p>
-          The <code>X-Voice-Signature</code> header is <code>t=&lt;unix&gt;,v1=&lt;hmac&gt;</code>,
-          where the HMAC is SHA-256 of <code>"&#123;t&#125;.&#123;raw_body&#125;"</code> keyed
-          with your endpoint secret. Recompute it and compare in constant time; reject
-          stale timestamps to prevent replay.
+          <code>X-Voice-Signature</code> has the form <code>t=&lt;unix time&gt;,v1=&lt;signature&gt;</code>.
+          The signature is an HMAC-SHA256 of <code>&#123;t&#125;.&#123;raw body&#125;</code>, keyed
+          with your endpoint's secret. Compute it yourself, compare the two in constant time,
+          and reject old timestamps so a captured request can't be replayed.
         </p>
         <Code tabs={[
           { label: "Python", lang: "text", code: `import hmac, hashlib, time
@@ -99,9 +102,9 @@ function verify(secret, body, header, tolerance = 300) {
   return crypto.timingSafeEqual(Buffer.from(expected), Buffer.from(p.v1));
 }` },
         ]} />
-        <Callout kind="note">Verify against the <strong>raw</strong> request body, before any JSON re-serialization.</Callout>
+        <Callout kind="note">Use the <strong>raw</strong> request body, exactly as received, before you parse it as JSON.</Callout>
 
-        <h2 id="manage">List &amp; delete</h2>
+        <h2 id="manage">List and delete</h2>
         <Endpoint method="GET" path="/v1/webhooks" />
         <Endpoint method="DELETE" path="/v1/webhooks/{id}" />
 

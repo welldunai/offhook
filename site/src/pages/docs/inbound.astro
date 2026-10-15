@@ -6,40 +6,42 @@ import Endpoint from "../../components/docs/Endpoint.astro";
 import Params from "../../components/docs/Params.astro";
 ---
 
-<DocsLayout title="Inbound calls" lead="Route an incoming phone number to one of your agents. Inbound calls run the same pipeline and produce the same events, transcript, and logs as outbound calls." slug="inbound">
+<DocsLayout title="Inbound calls" lead="Have one of your agents answer a phone number. Inbound calls run the same pipeline as outbound ones and produce the same events, transcript and log." slug="inbound">
         <h2 id="how">How it works</h2>
         <ol>
-          <li>Map a number to an agent with <code>POST /v1/phone-numbers</code>.</li>
-          <li>Point that number's <strong>answer URL</strong> (at your carrier) to <code>https://&lt;your-host&gt;/v1/telephony/inbound</code>.</li>
-          <li>When a call arrives, Offhook matches the dialed number to its agent, verifies the carrier signature, and connects the call.</li>
+          <li>Assign a number to an agent with <code>POST /v1/phone-numbers</code>.</li>
+          <li>At your carrier, set that number's <strong>answer URL</strong> to <code>https://&lt;your-host&gt;/v1/telephony/inbound</code>.</li>
+          <li>When someone calls, Offhook checks the carrier's signature, finds the agent for the dialed number, and connects the call.</li>
         </ol>
         <Callout kind="note">
-          The inbound webhook is carrier-facing and authenticated by the provider's
-          signature — it is not part of the tenant API and needs no key.
+          The answer URL is called by the carrier, not by you. It is authenticated by the
+          carrier's signature and doesn't use an API key.
         </Callout>
 
-        <h2 id="map">Map a number</h2>
+        <h2 id="map">Assign a number</h2>
         <Endpoint method="POST" path="/v1/phone-numbers" />
         <Params rows={[
-          { name: "e164", type: "string", required: true, desc: "The number in E.164 format, e.g. +14155550123." },
-          { name: "agent_id", type: "string", required: true, desc: "The agent that answers calls to this number." },
+          { name: "e164", type: "string", required: true, desc: "The number in E.164 format, e.g. <code>+14155550123</code>." },
+          { name: "agent_id", type: "uuid", required: true, desc: "The agent that answers calls to this number. It needs a telephony connection for the same carrier." },
         ]} />
         <Code tabs={[{ label: "cURL", lang: "bash", code: `curl -X POST http://localhost:8000/v1/phone-numbers \\
   -H "Authorization: Bearer $OFFHOOK_KEY" \\
   -H "Content-Type: application/json" \\
-  -d '{ "e164": "+14155550123", "agent_id": "agt_…" }'` }, { label: "Response", lang: "json", code: `{
-  "id": "pn_…",
+  -d '{ "e164": "+14155550123", "agent_id": "<agent-id>" }'` }, { label: "Response", lang: "json", code: `{
+  "id": "9d3c7e1a-4f2b-4d8e-b5a9-1c6e3f8d2a70",
   "e164": "+14155550123",
-  "agent_id": "agt_…",
-  "created_at": "2026-06-20T10:00:00Z"
+  "agent_id": "3b9e2a7c-1d4f-4e8a-b6c2-5f7a9d1e3c40",
+  "created_at": "2026-10-15T10:00:00Z"
 }` }]} />
+        <p>A number can belong to only one agent. Assigning a number that's already taken returns <code>409</code>.</p>
 
-        <h2 id="manage">List &amp; delete</h2>
+        <h2 id="manage">List and delete</h2>
         <Endpoint method="GET" path="/v1/phone-numbers" />
         <Endpoint method="DELETE" path="/v1/phone-numbers/{id}" />
         <p>
-          Inbound calls show up in your activity feed with <code>direction: "inbound"</code>
-          and emit a <a href="/docs/webhooks/"><code>call.received</code></a> event.
+          Inbound calls appear in your call list with <code>"direction": "inbound"</code>, and
+          each one sends a <a href="/docs/webhooks/#events"><code>call.received</code></a> event
+          when it arrives.
         </p>
 
 </DocsLayout>

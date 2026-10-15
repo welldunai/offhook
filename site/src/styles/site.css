@@ -125,3 +125,5 @@ h1, h2 { text-wrap: balance; }
   .docs-nav details[open] > .docs-nav-group:last-child { padding-bottom: var(--space-2); }
 }
 @media (max-width: 560px) { .docs-pager { grid-template-columns: 1fr; } .docs-pager .next { text-align: left; } }
+.docs-lead a { color: var(--link); text-decoration: underline; text-decoration-thickness: 1px; text-underline-offset: 3px; }
+.docs-prose td > code:only-child { white-space: nowrap; }
