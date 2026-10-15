@@ -27,7 +27,7 @@ import Endpoint from "../../components/docs/Endpoint.astro";
         <Endpoint method="GET" path="/v1/usage" />
         <p>
           Billable seconds and number of calls. By default this covers the current calendar
-          month; pass <code>from_</code> and <code>to</code> (ISO 8601) for another range.
+          month; pass <code>from</code> and <code>to</code> (ISO 8601) for another range.
         </p>
         <Code tabs={[{ label: "Response", lang: "json", code: `{ "total_seconds": 41230, "call_count": 1180 }` }]} />
 

@@ -8,8 +8,8 @@ from __future__ import annotations
 
 from datetime import datetime
 
-from fastapi import APIRouter, Depends
-from pydantic import BaseModel
+from fastapi import APIRouter, Depends, Query
+from pydantic import BaseModel, Field
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -21,7 +21,8 @@ router = APIRouter(prefix="/usage", tags=["usage"])
 
 
 class UsageOut(BaseModel):
-    from_: datetime | None = None
+    # Serialized as "from" (a Python keyword, so the attribute is from_).
+    from_: datetime | None = Field(default=None, serialization_alias="from")
     to: datetime | None = None
     total_seconds: int
     call_count: int
@@ -29,7 +30,7 @@ class UsageOut(BaseModel):
 
 @router.get("", response_model=UsageOut)
 async def get_usage(
-    from_: datetime | None = None,
+    from_: datetime | None = Query(default=None, alias="from"),
     to: datetime | None = None,
     ctx: TenantContext = Depends(require_tenant),
     db: AsyncSession = Depends(get_session),
