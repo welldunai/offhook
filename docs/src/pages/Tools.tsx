@@ -8,7 +8,7 @@ export default function Tools() {
       <h1>Tools</h1>
       <p className="lead">
         Give your agent functions it can call <em>during</em> a call to fetch
-        live data from your own APIs — look up an invoice, check an order, read a
+        live data from your own APIs — check an order, look up stock, read a
         booking. You declare the function; we call your endpoint with the model's
         arguments and feed the result back into the conversation.
       </p>
@@ -41,27 +41,27 @@ from fastapi import FastAPI
 
 app = FastAPI()
 
-@app.get("/tools/invoice/{invoice_number}")
-def fetch_invoice(invoice_number: str):
-    inv = db.query(Invoice).get(invoice_number)   # your code, your DB, your deps
-    if inv is None:
+@app.get("/tools/orders/{order_id}")
+def check_order_status(order_id: str):
+    order = db.query(Order).get(order_id)   # your code, your DB, your deps
+    if order is None:
         return {"found": False}
     return {
         "found": True,
-        "amount": inv.amount,
-        "due_date": str(inv.due_date),
-        "status": inv.status,
+        "status": order.status,
+        "items": order.item_count,
+        "delivery_date": str(order.delivery_date),
     }` }, { label: "Register it", lang: "bash", code: `curl -X POST http://localhost:8000/v1/tools \\
   -H "Authorization: Bearer $OFFHOOK_KEY" \\
   -H "Content-Type: application/json" \\
   -d '{
-    "name": "fetch_invoice",
-    "description": "Look up an invoice by number; returns amount, due date, and status.",
+    "name": "check_order_status",
+    "description": "Look up an order by ID; returns status, items, and delivery date.",
     "method": "GET",
-    "url": "https://api.yourapp.com/tools/invoice/{invoice_number}",
+    "url": "https://api.yourapp.com/tools/orders/{order_id}",
     "parameters": {
-      "properties": { "invoice_number": { "type": "string" } },
-      "required": ["invoice_number"]
+      "properties": { "order_id": { "type": "string" } },
+      "required": ["order_id"]
     },
     "headers": { "Authorization": "Bearer your-internal-key" }
   }'` }]} />
@@ -74,7 +74,7 @@ def fetch_invoice(invoice_number: str):
       <h2 id="create">Create a tool</h2>
       <Endpoint method="POST" path="/v1/tools" />
       <Params rows={[
-        { name: "name", type: "string", required: true, desc: "The function name the model calls. A valid identifier, e.g. fetch_invoice. Unique per workspace." },
+        { name: "name", type: "string", required: true, desc: "The function name the model calls. A valid identifier, e.g. check_order_status. Unique per workspace." },
         { name: "description", type: "string", required: true, desc: "What the tool does and when to use it. Drives whether the model calls it." },
         { name: "parameters", type: "object", desc: "The arguments, JSON-Schema style: { properties: { ... }, required: [ ... ] }." },
         { name: "method", type: "string", desc: "GET (default) or POST." },
@@ -86,25 +86,25 @@ def fetch_invoice(invoice_number: str):
   -H "Authorization: Bearer $OFFHOOK_KEY" \\
   -H "Content-Type: application/json" \\
   -d '{
-    "name": "fetch_invoice",
-    "description": "Look up an invoice by its number and return the amount, due date, and status.",
+    "name": "check_order_status",
+    "description": "Look up an order by its ID and return its status, items, and delivery date.",
     "method": "GET",
-    "url": "https://api.yourapp.com/invoices/{invoice_number}",
+    "url": "https://api.yourapp.com/orders/{order_id}",
     "parameters": {
       "properties": {
-        "invoice_number": { "type": "string", "description": "The invoice id, e.g. INV-1042" }
+        "order_id": { "type": "string", "description": "The order ID, e.g. ORD-1042" }
       },
-      "required": ["invoice_number"]
+      "required": ["order_id"]
     },
     "headers": { "Authorization": "Bearer sk_live_…" },
     "timeout_seconds": 8
   }'` }, { label: "Response", lang: "json", code: `{
   "id": "tool_3f9a…",
-  "name": "fetch_invoice",
-  "description": "Look up an invoice by its number…",
+  "name": "check_order_status",
+  "description": "Look up an order by its ID…",
   "method": "GET",
-  "url": "https://api.yourapp.com/invoices/{invoice_number}",
-  "parameters": { "properties": { "invoice_number": { "type": "string" } }, "required": ["invoice_number"] },
+  "url": "https://api.yourapp.com/orders/{order_id}",
+  "parameters": { "properties": { "order_id": { "type": "string" } }, "required": ["order_id"] },
   "has_auth": true,
   "timeout_seconds": 8,
   "created_at": "2026-06-21T10:00:00Z"
@@ -117,7 +117,7 @@ def fetch_invoice(invoice_number: str):
         <li><b>GET.</b> Remaining arguments become the query string.</li>
         <li><b>POST.</b> Remaining arguments become the JSON request body.</li>
       </ul>
-      <p>So <code>fetch_invoice(invoice_number="INV-1042")</code> above issues <code>GET https://api.yourapp.com/invoices/INV-1042</code> with your auth header.</p>
+      <p>So <code>check_order_status(order_id="ORD-1042")</code> above issues <code>GET https://api.yourapp.com/orders/ORD-1042</code> with your auth header.</p>
 
       <h2 id="attach">Attach a tool to an agent</h2>
       <p>Pass <code>tool_ids</code> when creating the agent. The agent can then call any of its tools during a call.</p>
@@ -125,8 +125,8 @@ def fetch_invoice(invoice_number: str):
   -H "Authorization: Bearer $OFFHOOK_KEY" \\
   -H "Content-Type: application/json" \\
   -d '{
-    "name": "Billing assistant",
-    "instructions": "Help the caller with billing questions. Use fetch_invoice to look up specifics.",
+    "name": "Order support",
+    "instructions": "Help the caller with questions about their order. Use check_order_status to look up specifics.",
     "stt_connection_id": "conn_…",
     "tts_connection_id": "conn_…",
     "llm_connection_id": "conn_…",

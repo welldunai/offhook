@@ -390,7 +390,7 @@ used to sanitize the stored transcript. Tested clean at every chunk size 1..N.
 ### Custom HTTP tools (tenant-defined, `app/tools/http_tool.py`)
 
 A tenant declares a function the agent can call mid-call to fetch live data from
-their own API (e.g. "fetch_invoice" by invoice number). Stored in `custom_tools`
+their own API (e.g. "check_order_status" by order ID). Stored in `custom_tools`
 (name, description, JSON-Schema `parameters`, `method`, `url`, **encrypted**
 `headers`, `timeout_seconds`); attached to agents via `agents.tool_ids`.
 

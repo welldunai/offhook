@@ -91,12 +91,12 @@ function CreateModal({ onClose, onDone }: { onClose: () => void; onDone: () => v
         <button className="btn btn-ghost" onClick={onClose}>Cancel</button>
         <button className="btn btn-primary" onClick={save} disabled={busy || !ready}>{busy ? "Saving…" : "Create tool"}</button>
       </>}>
-      <Field label="Function name" hint="What the model calls. Identifier only, e.g. fetch_invoice.">
-        <input className="input mono" value={name} onChange={(e) => setName(e.target.value)} placeholder="fetch_invoice" />
+      <Field label="Function name" hint="What the model calls. Identifier only, e.g. check_order_status.">
+        <input className="input mono" value={name} onChange={(e) => setName(e.target.value)} placeholder="check_order_status" />
       </Field>
       <Field label="Description" hint="Tell the model when to use it — this drives whether it gets called.">
         <textarea className="input" value={description} onChange={(e) => setDescription(e.target.value)}
-          placeholder="Look up an invoice by its number and return amount, due date, and status." />
+          placeholder="Look up an order by its ID and return its status, items, and delivery date." />
       </Field>
 
       <div className="row" style={{ gap: 10, alignItems: "flex-start" }}>
@@ -108,7 +108,7 @@ function CreateModal({ onClose, onDone }: { onClose: () => void; onDone: () => v
         <div style={{ flex: 1 }}>
           <Field label="Endpoint URL" hint="Use {param} to drop an argument into the path.">
             <input className="input mono" value={url} onChange={(e) => setUrl(e.target.value)}
-              placeholder="https://api.yourapp.com/invoices/{invoice_number}" />
+              placeholder="https://api.yourapp.com/orders/{order_id}" />
           </Field>
         </div>
       </div>
@@ -117,7 +117,7 @@ function CreateModal({ onClose, onDone }: { onClose: () => void; onDone: () => v
         <div style={{ display: "grid", gap: 8 }}>
           {params.map((p, i) => (
             <div key={i} className="row" style={{ gap: 6 }}>
-              <input className="input mono" style={{ flex: 1.2 }} placeholder="invoice_number"
+              <input className="input mono" style={{ flex: 1.2 }} placeholder="order_id"
                 value={p.name} onChange={(e) => setParam(i, { name: e.target.value })} />
               <div style={{ width: 110 }}>
                 <Select value={p.type} onChange={(v) => setParam(i, { type: v })}
