@@ -224,8 +224,8 @@ During the call the agent can call two tools:
 - `end_call(summary)` — hang up cleanly (plays any in-flight speech first).
 
 These accumulate in a `CallOutcome` (`{data, summary, ended_by_agent}`) that
-`run_call` returns and logs on hang-up. Persisting outcomes (DB / webhook) is
-the next thing to wire up.
+`run_call` returns on hang-up. The outcome is saved on the call record
+(`calls.outcome`) together with the transcript.
 
 ## Tuning latency & voice quality
 

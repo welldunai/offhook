@@ -1,12 +1,15 @@
-# Deploying offhook on Railway
+# Deploying Offhook on Railway
 
 Three Railway services from this one repo (API, worker, dashboard), sharing a
 Postgres database. Config-as-code lives at the repo root
 (`railway.api.json`, `railway.worker.json`) and in `dashboard/railway.json`.
 Repo: https://github.com/welldunai/offhook
 
-For architecture/env-var reference see `README.md` / `ARCHITECTURE.md`. For
+For the API and env-var reference see `REFERENCE.md` and `ARCHITECTURE.md`. For
 the generic (non-Railway) self-host path see `docs/src/pages/Deploying.tsx`.
+
+**Region:** pick the same region for all three services, close to your database
+and your callers. Every network hop adds latency to the call.
 
 ## 0. Choose your database
 
@@ -96,8 +99,8 @@ here too: redeploy both after editing a shared variable.
 ```
 ENV=prod
 DATABASE_URL=...                       # see step 0
-MASTER_ENCRYPTION_KEY=...              # same one you already generated locally — reuse it,
-                                        # don't regenerate, or existing encrypted secrets become unrecoverable
+MASTER_ENCRYPTION_KEY=...              # base64 of 32 random bytes; if you are moving an existing database, reuse
+                                        # its key — a new key makes the stored secrets unrecoverable
 MASTER_KEY_ID=v1
 ENABLE_PREBUILT_UI=0                   # must be 0 in prod — settings.py enforces this at boot
 WEBHOOK_ALLOW_PRIVATE=0                # must be 0 in prod
@@ -140,8 +143,8 @@ VITE_CLERK_PUBLISHABLE_KEY=pk_live_...    # from your Clerk app
 ```
 
 Also set `CLERK_ISSUER` (shared var above, API-side) to your Clerk app's
-issuer URL if you want dashboard sign-in to work — same value as your local
-`dashboard/.env`'s Clerk app, or a separate production Clerk instance.
+issuer URL if you want dashboard sign-in to work. A separate production Clerk
+instance is a good idea.
 
 ## 4. Generate domains, then wire URLs together
 
@@ -170,13 +173,13 @@ Then bootstrap the first tenant (prints an API key **once** — save it):
 railway run --service api python -m app.admin create-tenant --name "Acme" --slug acme
 ```
 
-Register connections (Cartesia/Deepgram/Groq keys, Plivo) and an agent via
+Register connections (Cartesia, Deepgram and LLM keys, plus Plivo or Twilio) and an agent via
 `POST /v1/connections` and `/v1/agents` using that API key, or through the
 dashboard once it's up.
 
-## 6. Point Plivo at the new URL
+## 6. Point your carrier at the new URL
 
-Update your Plivo number's answer URL to:
+For inbound calls, set your Plivo or Twilio number's answer URL to:
 `https://<api-service-domain>/v1/telephony/inbound`
 
 No ngrok in production — `PUBLIC_BASE_URL` is the real Railway domain from
@@ -195,22 +198,15 @@ ephemeral on Railway — wiped on every redeploy/restart. Either:
 
 ## Sleep on inactivity (cost saving)
 
-All three `railway.*.json` files set `deploy.sleepApplication: true`. Railway
-sleeps a service after ~10 minutes with no outbound traffic and wakes it on
-the next incoming request — good for `api` and `dashboard`, which have public
-domains to receive that wake-up request.
+Railway can put a service to sleep after about 10 minutes without traffic and wake it on the next request. The defaults here are:
 
-`worker` has **no public domain**, so there's no inbound request to wake it
-if it sleeps — it will likely stay asleep until you manually restart it:
+| Service | `sleepApplication` | Why |
+| --- | --- | --- |
+| `dashboard` | `true` | Static site; waking on the next page load is fine |
+| `api` | `false` | Carrier webhooks for a live or inbound call can't wait for a cold start |
+| `worker` | `false` | It has no public domain, so nothing would ever wake it, and queued calls would never dial |
 
-```bash
-railway redeploy -s offhook-worker
-```
-
-If a call ever gets stuck at `dialing` and `PUBLIC_BASE_URL`/ngrok isn't the
-cause (Playbook A doesn't apply here — no ngrok in prod), check whether the
-worker is asleep before anything else. Set `sleepApplication: false` in
-`railway.worker.json` if this bites you.
+You can set `sleepApplication: true` on `api` in `railway.api.json` to save money if you only place outbound calls and accept a slower first request. Leave the worker awake. If calls stay at `queued` after a deploy, check that the worker is running (`railway redeploy -s <worker-service>`).
 
 ## Health checks
 
