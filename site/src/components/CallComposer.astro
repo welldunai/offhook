@@ -70,6 +70,7 @@ const { examples = true, ideas = [] } = Astro.props;
     </dl>
     <div class="plan-actions">
       <button class="wd-btn wd-btn--primary" type="button" data-start disabled>Start the call</button>
+      <button class="wd-btn wd-btn--secondary" type="button" data-edit>Edit the plan</button>
     </div>
     <p class="plan-note" data-slot="note"></p>
   </section>
@@ -105,7 +106,8 @@ const { examples = true, ideas = [] } = Astro.props;
 </div>
 
 <script>
-  import { DemoError, demoEnabled, planCall, type Plan } from "../demo/client";
+  import { DemoError, demoEnabled, demoStatus, planCall, statusMessage, type Plan } from "../demo/client";
+  import { planEditor } from "../demo/plan-editor";
 
   for (const root of document.querySelectorAll<HTMLElement>("[data-composer]")) {
     const form = root.querySelector("form")!;
@@ -129,6 +131,58 @@ const { examples = true, ideas = [] } = Astro.props;
         });
       }
       for (const note of root.querySelectorAll<HTMLElement>("[data-live-note]")) note.textContent = note.dataset.liveNote!;
+      void checkStatus();
+    }
+
+    /** Disables "Start the call" with a reason when the demo is offline, busy or paused. */
+    let unavailable: string | null = null;
+    async function checkStatus() {
+      unavailable = statusMessage(await demoStatus());
+      for (const btn of root.querySelectorAll<HTMLButtonElement>("[data-start]")) btn.disabled = Boolean(unavailable);
+      for (const note of root.querySelectorAll<HTMLElement>("[data-live-note], [data-slot=note]")) {
+        note.classList.toggle("plan-note--warn", Boolean(unavailable));
+        if (unavailable) note.textContent = unavailable;
+        else if (note.dataset.liveNote) note.textContent = note.dataset.liveNote;
+      }
+    }
+
+    // Editing the custom plan before calling.
+    let customPlan: Plan | null = null;
+    let plansLeft = 0;
+    const editBtn = root.querySelector<HTMLButtonElement>("[data-edit]")!;
+    editBtn.hidden = !demoEnabled;
+    editBtn.addEventListener("click", () => {
+      if (!customPlan) return;
+      const view = [custom.querySelector<HTMLElement>(".plan-grid")!, custom.querySelector<HTMLElement>(".plan-actions")!];
+      view.forEach((v) => (v.hidden = true));
+      const done = () => {
+        editor.remove();
+        view.forEach((v) => (v.hidden = false));
+        editBtn.focus();
+      };
+      const editor = planEditor(
+        customPlan,
+        (plan) => {
+          setCustom(plan);
+          done();
+        },
+        done,
+      );
+      view[0].after(editor);
+      editor.querySelector<HTMLInputElement>("input")?.focus();
+    });
+
+    /** Shows `plan` in the custom card and makes it the plan "Start the call" uses. */
+    function setCustom(plan: Plan) {
+      customPlan = plan;
+      fill(custom, plan, plansLeft);
+      custom.dataset.call = JSON.stringify({ request: { plan }, agent: plan.agent, brief: plan.brief, fields: plan.fields });
+      if (unavailable) slotNote();
+    }
+    function slotNote() {
+      const note = custom.querySelector<HTMLElement>("[data-slot=note]")!;
+      note.textContent = unavailable ?? note.textContent;
+      note.classList.toggle("plan-note--warn", Boolean(unavailable));
     }
     const chips = [...root.querySelectorAll<HTMLButtonElement>("[data-example]")];
     const ideas = [...root.querySelectorAll<HTMLButtonElement>("[data-idea]")];
@@ -194,8 +248,9 @@ const { examples = true, ideas = [] } = Astro.props;
         if (res.status === "refused") {
           tell(`We can't plan that call. ${res.reason}`);
         } else {
-          fill(custom, res.plan, res.plans_left);
-          custom.dataset.call = JSON.stringify({ request: { plan: res.plan }, agent: res.plan.agent, brief: res.plan.brief, fields: res.plan.fields });
+          plansLeft = res.plans_left;
+          setCustom(res.plan);
+          void checkStatus();
           planned = purpose;
           show("custom");
           custom.scrollIntoView({ block: "nearest", behavior: matchMedia("(prefers-reduced-motion: reduce)").matches ? "auto" : "smooth" });

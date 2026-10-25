@@ -197,3 +197,29 @@ function loadWidget(): Promise<{ api: TurnstileApi; id: string }> {
     document.head.append(script);
   });
 }
+
+export interface DemoStatus {
+  online: boolean;
+  busy: boolean;
+  paused: boolean;
+}
+
+/**
+ * Asks whether a call could start now.
+ * Returns: the status, or null if the demo API can't be reached.
+ */
+export async function demoStatus(): Promise<DemoStatus | null> {
+  try {
+    return await get<DemoStatus>("/status");
+  } catch {
+    return null;
+  }
+}
+
+/** The sentence to show when calls can't start, or null when they can. */
+export function statusMessage(s: DemoStatus | null): string | null {
+  if (!s || !s.online) return "The live demo is offline right now. Hear a sample call instead, or try again later.";
+  if (s.paused) return "The live demo has used today's minutes. It's back tomorrow.";
+  if (s.busy) return "All lines are busy right now. Try again in a minute.";
+  return null;
+}

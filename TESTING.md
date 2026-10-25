@@ -67,3 +67,9 @@ npm test               # vitest run   (npm run test:watch for watch mode)
 The component test mocks `../api` and renders the page inside a `MemoryRouter`;
 the real `useAsync` hook drives the mocked client so the filter/pagination wiring
 is exercised end to end.
+
+## Live demo
+
+- Worker: `cd demo/worker && nvm use && pnpm test` (Vitest, in Node; the Gate's logic runs on `node:sqlite`).
+- Voice server: `python -m pytest tests/demo` (no database needed).
+- In a browser, end to end: `python demo/e2e/browser_call.py`, with the local servers from [demo/README.md](demo/README.md) running.

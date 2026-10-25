@@ -46,6 +46,16 @@ Without Docker: `uv pip install -e . && WORKER_URL=http://localhost:8790 python 
 
 Both containers restart on their own after a crash or a reboot. Keep the Mac awake while the demo should be up (`caffeinate -s`, or Energy settings); when it sleeps, the site says the live demo is offline and still shows the sample calls.
 
+## Test it in a browser
+
+With the Worker (`--var DAILY_CALLS_PER_VISITOR:100 --var DAILY_PLANS_PER_VISITOR:100`), the voice server and the site (`cd site && pnpm dev --port 4321`) running:
+
+```bash
+python demo/e2e/browser_call.py
+```
+
+It opens Chromium with a fake microphone that plays a patient's lines, makes the appointment call end to end, plans and edits a custom call, opens "Try it live" on a use-case page, and joins the waitlist.
+
 ## Useful checks
 
 ```bash

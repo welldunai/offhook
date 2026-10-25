@@ -345,3 +345,19 @@ h1, h2 { text-wrap: balance; }
 .call-waitlist-msg { font-weight: 600; }
 .call-diy { align-self: flex-start; display: inline-flex; align-items: center; gap: 6px; font-size: 15px; font-weight: 600; color: var(--link); text-decoration: none; }
 .call-diy:hover { text-decoration: underline; }
+
+/* Editing a planned call */
+.plan-edit { display: flex; flex-direction: column; gap: var(--space-4); }
+.plan-edit-row { display: flex; flex-direction: column; gap: var(--space-2); }
+.plan-edit-title { font-size: 13px; font-weight: 600; color: var(--ink-muted); }
+.plan-edit input, .plan-edit textarea { width: 100%; padding: 10px 12px; border: 1px solid var(--line-strong); border-radius: var(--radius-md); background: var(--surface-raised); color: var(--ink); font: 400 15px/22px var(--font-sans); resize: vertical; }
+.plan-edit input:focus-visible, .plan-edit textarea:focus-visible { outline: 2px solid var(--focus); outline-offset: 1px; }
+.plan-edit-list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: var(--space-2); }
+.plan-edit-list li { display: flex; gap: var(--space-2); align-items: center; }
+.plan-edit-row > .wd-btn { align-self: flex-start; }
+.plan-edit-more summary { cursor: pointer; font-size: 14px; font-weight: 600; color: var(--ink-muted); margin-bottom: var(--space-2); }
+.plan-edit-problem { margin: 0; padding: var(--space-3) var(--space-4); border-radius: var(--radius-md); background: var(--status-failed-soft); font-size: 15px; }
+.plan-note--warn { color: var(--ink); font-weight: 600; }
+.plan-edit-field { display: grid; grid-template-columns: 7.5rem minmax(0, 1fr); align-items: center; gap: var(--space-2); }
+.plan-edit-field span { font-size: 14px; color: var(--ink-muted); }
+@media (max-width: 520px) { .plan-edit-field { grid-template-columns: minmax(0, 1fr); gap: 4px; } }

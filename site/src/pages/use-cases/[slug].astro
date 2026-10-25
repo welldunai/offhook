@@ -1,6 +1,7 @@
 ---
 import Base from "../../layouts/Base.astro";
 import Code from "../../components/Code.astro";
+import CallDialog from "../../components/CallDialog.astro";
 import { USE_CASES, showValue, type UseCase } from "../../use-cases";
 
 export function getStaticPaths() {
@@ -54,10 +55,17 @@ const code = [
       <h1 class="display-lg">{u.title}</h1>
       <p class="body-lg uc-lede">{u.summary}</p>
       <div class="wd-row">
-        <button class="wd-btn wd-btn--primary" type="button" disabled aria-describedby="demo-soon">Try it live</button>
+        <button
+          class="wd-btn wd-btn--primary"
+          type="button"
+          disabled
+          aria-describedby="demo-soon"
+          data-try
+          data-call={JSON.stringify({ request: { use_case: u.slug }, agent: u.agent, brief: u.brief, fields: u.fields.map(({ key, label }) => ({ key, label })) })}
+        >Try it live</button>
         <a class="wd-btn wd-btn--secondary" href="/docs/quickstart/">Run it yourself</a>
       </div>
-      <p class="hero-meta" id="demo-soon">The live demo is coming soon: you'll play {u.person} and talk to {u.agent.name} in your browser.</p>
+      <p class="hero-meta" id="demo-soon" data-live-note={`You play ${u.person} and talk to ${u.agent.name} in your browser, for up to two minutes.`}>The live demo is coming soon: you'll play {u.person} and talk to {u.agent.name} in your browser.</p>
     </header>
 
     <div class="uc-body">
@@ -123,4 +131,21 @@ const code = [
       ))}
     </nav>
   </section>
+  <CallDialog />
 </Base>
+
+<script>
+  import { demoEnabled, demoStatus, statusMessage } from "../../demo/client";
+
+  // "Try it live" opens the call dialog once this build has a demo backend.
+  const button = document.querySelector<HTMLButtonElement>("[data-try]");
+  const note = document.querySelector<HTMLElement>("[data-live-note]");
+  if (demoEnabled && button && note) {
+    button.addEventListener("click", () => document.dispatchEvent(new CustomEvent("offhook:call", { detail: JSON.parse(button.dataset.call!) })));
+    void demoStatus().then((s) => {
+      const message = statusMessage(s);
+      button.disabled = Boolean(message);
+      note.textContent = message ?? note.dataset.liveNote!;
+    });
+  }
+</script>
