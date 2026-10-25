@@ -1,61 +1,88 @@
-/* welldun components. Colours come from tokens.css; the only literals are translucent whites on the code block, which is dark in both themes. */
+/* welldun components (v2, warm). Colours come from tokens.css; the only literals are
+   translucent whites on the code block, which is dark in both themes. */
 
 body { margin: 0; font-family: var(--font-sans); background: var(--surface); color: var(--ink); -webkit-font-smoothing: antialiased; text-rendering: optimizeLegibility; }
 
 /* ---------- layout + small utilities ---------- */
 .wd-container { max-width: var(--page-max); margin-inline: auto; padding-inline: max(var(--space-4), env(safe-area-inset-left, 0px)); }
 @media (min-width: 720px) { .wd-container { padding-inline: var(--space-6); } }
-.wd-eyebrow { font-family: var(--font-mono); font-size: 12px; line-height: 16px; font-weight: 500; letter-spacing: 0.08em; text-transform: uppercase; color: var(--signal); margin: 0; }
-.wd-eyebrow-sep { color: var(--ink-muted); padding-inline: 0.5em; }
+/* Kicker above a headline: sentence case, the brand orange at text strength. */
+.wd-eyebrow { margin: 0; font-family: var(--font-sans); font-size: 15px; line-height: 20px; font-weight: 600; color: var(--signal-strong); }
+.wd-eyebrow-sep { color: var(--ink-muted); padding-inline: 0.4em; font-weight: 400; }
+.wd-label { margin: 0; font-size: 13px; line-height: 18px; font-weight: 600; color: var(--ink-muted); }
 .wd-stack { display: flex; flex-direction: column; gap: var(--space-4); }
 .wd-row { display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-2); }
-:where(.wd-btn, .wd-nav a, .wd-code-tab, .wd-code-copy, .wd-card, .wd-prose a, .wd-footer a):focus-visible { outline: 2px solid var(--focus); outline-offset: 2px; }
+:where(.wd-btn, .wd-nav a, .wd-code-tab, .wd-code-copy, .wd-card, .wd-tile, .wd-chip, .wd-prose a, .wd-footer a):focus-visible { outline: 2px solid var(--focus); outline-offset: 2px; }
+
+/* Arrow icon: drawn as a mask in the current text colour, so it looks the same in every font
+   (Figtree has no →). Keep the → character inside for no-CSS readers; font-size 0 hides it. */
+.wd-arrow, .wd-btn-arrow, .wd-card-go { display: inline-block; width: 15px; height: 15px; flex: none; overflow: hidden; font-size: 0; line-height: 0; vertical-align: -2px; background-color: currentColor;
+  -webkit-mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16' fill='none' stroke='black' stroke-width='1.8' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M3 8h10M9 4l4 4-4 4'/%3E%3C/svg%3E") center / contain no-repeat;
+          mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16' fill='none' stroke='black' stroke-width='1.8' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M3 8h10M9 4l4 4-4 4'/%3E%3C/svg%3E") center / contain no-repeat; }
 
 /* ---------- Wordmark ---------- */
-.wd-wordmark { display: inline-flex; align-items: baseline; gap: 0.5em; font-family: var(--font-display); font-weight: 720; font-size: 22px; line-height: 1; letter-spacing: -0.015em; color: var(--ink); text-decoration: none; white-space: nowrap; }
+.wd-wordmark { display: inline-flex; align-items: baseline; gap: 0.35em; font-family: var(--font-display); font-weight: 800; font-size: 22px; line-height: 1; letter-spacing: -0.03em; color: var(--ink); text-decoration: none; white-space: nowrap; }
 .wd-wordmark-dot { color: var(--signal); }
-.wd-wordmark-slash { font-family: var(--font-mono); font-weight: 400; color: var(--line-strong); letter-spacing: 0; }
-.wd-wordmark-product { font-family: var(--font-mono); font-size: 0.68em; font-weight: 500; letter-spacing: 0; color: var(--ink); }
+.wd-wordmark-slash { font-weight: 300; color: var(--line-strong); letter-spacing: 0; }
+.wd-wordmark-product { font-weight: 500; letter-spacing: -0.01em; color: var(--ink-muted); }
 .wd-wordmark--lg { font-size: 40px; }
 
 /* ---------- Site header ---------- */
-.wd-header { position: sticky; top: env(safe-area-inset-top, 0px); z-index: 20; background: var(--surface); border-bottom: 1px solid var(--line); }
-.wd-header[data-scrolled="true"] { box-shadow: var(--shadow-overlay); }
+.wd-header { position: sticky; top: env(safe-area-inset-top, 0px); z-index: 20; background: var(--surface); border-bottom: 1px solid transparent; transition: border-color .15s ease, box-shadow .15s ease; }
+.wd-header[data-scrolled="true"] { border-bottom-color: var(--line); box-shadow: var(--shadow-overlay); }
 .wd-header-inner { height: var(--header-height); display: flex; align-items: center; gap: var(--space-6); }
 .wd-nav { display: flex; align-items: center; gap: var(--space-1); flex: 1; min-width: 0; overflow-x: auto; scrollbar-width: none; }
-.wd-nav a { font-size: 14px; line-height: 20px; font-weight: 500; color: var(--ink-muted); text-decoration: none; padding: 6px 10px; border-radius: var(--radius-md); white-space: nowrap; }
+.wd-nav a { font-size: 15px; line-height: 20px; font-weight: 500; color: var(--ink-muted); text-decoration: none; padding: 7px 12px; border-radius: var(--radius-pill); white-space: nowrap; }
 .wd-nav a:hover { color: var(--ink); background: var(--surface-sunken); }
 .wd-nav a[aria-current="page"] { color: var(--ink); background: var(--surface-sunken); }
 .wd-header-actions { display: flex; align-items: center; gap: var(--space-2); }
 @media (max-width: 560px) { .wd-header-inner { gap: var(--space-3); } .wd-header-actions .wd-btn--secondary { display: none; } }
 
 /* ---------- Site footer ---------- */
-.wd-footer { border-top: 1px solid var(--line); padding-block: var(--space-6); color: var(--ink-muted); font-size: 14px; line-height: 20px; }
+.wd-footer { border-top: 1px solid var(--line); padding-block: var(--space-6); color: var(--ink-muted); font-size: 15px; line-height: 22px; }
 .wd-footer-inner { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: var(--space-4); }
 .wd-footer-links { display: flex; flex-wrap: wrap; gap: var(--space-5); }
 .wd-footer a { color: var(--ink-muted); text-decoration: none; }
 .wd-footer a:hover { color: var(--ink); }
-.wd-footer .wd-wordmark { font-size: 16px; }
+.wd-footer .wd-wordmark { font-size: 17px; }
 
 /* ---------- Button ---------- */
-.wd-btn { --h: var(--control-height); display: inline-flex; align-items: center; justify-content: center; gap: var(--space-2); height: var(--h); padding: 0 14px; border-radius: var(--radius-md); border: 1px solid var(--line); background: var(--surface-raised); color: var(--ink); font-family: var(--font-sans); font-size: 14px; line-height: 20px; font-weight: 500; text-decoration: none; cursor: pointer; white-space: nowrap; transition: background-color .12s ease, border-color .12s ease, color .12s ease; }
+.wd-btn { --h: var(--control-height); display: inline-flex; align-items: center; justify-content: center; gap: var(--space-2); height: var(--h); padding: 0 18px; border-radius: var(--radius-pill); border: 1px solid var(--line); background: var(--surface-raised); color: var(--ink); font-family: var(--font-sans); font-size: 15px; line-height: 20px; font-weight: 600; text-decoration: none; cursor: pointer; white-space: nowrap; transition: background-color .12s ease, border-color .12s ease, color .12s ease, transform .12s ease; }
 .wd-btn:hover { border-color: var(--line-strong); }
-.wd-btn--primary { background: var(--signal); border-color: var(--signal); color: var(--on-signal); }
-.wd-btn--primary:hover { background: var(--signal-strong); border-color: var(--signal-strong); }
+.wd-btn:active { transform: translateY(1px); }
+/* Primary: ink pill. Accent: the orange, for one action that should pop (e.g. "Plan the call"). */
+.wd-btn--primary { background: var(--ink); border-color: var(--ink); color: var(--surface); }
+.wd-btn--primary:hover { background: var(--ink); border-color: var(--ink); opacity: .88; }
+.wd-btn--accent { background: var(--signal-strong); border-color: var(--signal-strong); color: var(--on-signal); }
+.wd-btn--accent:hover { opacity: .9; border-color: var(--signal-strong); }
 .wd-btn--ghost { background: transparent; border-color: transparent; color: var(--ink-muted); }
 .wd-btn--ghost:hover { background: var(--surface-sunken); border-color: transparent; color: var(--ink); }
-.wd-btn--sm { --h: 32px; padding: 0 10px; font-size: 13px; }
-.wd-btn[disabled], .wd-btn[aria-disabled="true"] { opacity: .5; cursor: not-allowed; }
-.wd-btn-arrow { font-family: var(--font-mono); transition: transform .15s ease; }
+.wd-btn--sm { --h: 34px; padding: 0 14px; font-size: 14px; }
+.wd-btn[disabled], .wd-btn[aria-disabled="true"] { opacity: .45; cursor: not-allowed; transform: none; }
 .wd-btn:hover .wd-btn-arrow { transform: translateX(2px); }
+.wd-btn-arrow { transition: transform .15s ease; }
 
-/* ---------- Badge ---------- */
-.wd-badge { display: inline-flex; align-items: center; gap: var(--space-1); height: 22px; padding: 0 8px; border-radius: var(--radius-sm); background: var(--surface-sunken); color: var(--ink-muted); font-family: var(--font-mono); font-size: 11px; font-weight: 500; letter-spacing: 0.04em; text-transform: uppercase; white-space: nowrap; }
+/* ---------- Badge (small sentence-case tag) ---------- */
+.wd-badge { display: inline-flex; align-items: center; gap: var(--space-1); height: 24px; padding: 0 10px; border-radius: var(--radius-pill); background: var(--surface-sunken); color: var(--ink-muted); font-family: var(--font-sans); font-size: 13px; font-weight: 600; white-space: nowrap; }
 .wd-badge--signal { background: var(--signal-soft); color: var(--signal-strong); }
 .wd-badge--outline { background: transparent; box-shadow: inset 0 0 0 1px var(--line-strong); color: var(--ink); }
 
+/* ---------- Chip (selectable pill, optional avatar) ---------- */
+.wd-chip { appearance: none; display: inline-flex; align-items: center; gap: 8px; padding: 6px 14px 6px 6px; border: 0; border-radius: var(--radius-pill); background: var(--surface-sunken); color: var(--ink); font: 500 14px/20px var(--font-sans); cursor: pointer; text-decoration: none; transition: box-shadow .12s ease; }
+.wd-chip:not(:has(.wd-avatar)) { padding-left: 14px; }
+.wd-chip:hover { box-shadow: inset 0 0 0 1px var(--line-strong); }
+.wd-chip[aria-pressed="true"] { box-shadow: inset 0 0 0 2px var(--ink); }
+.wd-chip--peach { background: var(--tint-peach); } .wd-chip--blue { background: var(--tint-blue); } .wd-chip--mint { background: var(--tint-mint); }
+.wd-chip--lavender { background: var(--tint-lavender); } .wd-chip--yellow { background: var(--tint-yellow); }
+
+/* ---------- Avatar (initials on a pastel circle) ---------- */
+.wd-avatar { --av: var(--avatar-blue); display: inline-grid; place-items: center; width: 26px; height: 26px; flex: none; border-radius: var(--radius-pill); background: var(--av); color: var(--ink); font: 700 12px/1 var(--font-sans); }
+.wd-avatar--lg { width: 44px; height: 44px; font-size: 17px; }
+.wd-avatar--peach { --av: var(--avatar-peach); } .wd-avatar--blue { --av: var(--avatar-blue); } .wd-avatar--mint { --av: var(--avatar-mint); }
+.wd-avatar--lavender { --av: var(--avatar-lavender); } .wd-avatar--yellow { --av: var(--avatar-yellow); }
+
 /* ---------- Status pill (Offhook call states) ---------- */
-.wd-status { --fg: var(--status-queued); --bg: var(--status-queued-soft); display: inline-flex; align-items: center; gap: 7px; height: 24px; padding: 0 10px 0 9px; border-radius: var(--radius-pill); background: var(--bg); color: var(--fg); font-family: var(--font-mono); font-size: 12px; font-weight: 500; line-height: 1; white-space: nowrap; font-variant-numeric: tabular-nums; }
+.wd-status { --fg: var(--status-queued); --bg: var(--status-queued-soft); display: inline-flex; align-items: center; gap: 7px; height: 26px; padding: 0 11px 0 10px; border-radius: var(--radius-pill); background: var(--bg); color: var(--fg); font-family: var(--font-sans); font-size: 13px; font-weight: 600; line-height: 1; white-space: nowrap; font-variant-numeric: tabular-nums; }
 .wd-status-dot { width: 7px; height: 7px; border-radius: var(--radius-pill); background: var(--fg); flex: none; }
 .wd-status--dialing { --fg: var(--status-dialing); --bg: var(--status-dialing-soft); }
 .wd-status--live { --fg: var(--status-live); --bg: var(--status-live-soft); }
@@ -66,17 +93,37 @@ body { margin: 0; font-family: var(--font-sans); background: var(--surface); col
 .wd-status--failed .wd-status-dot { border-radius: 1px; transform: rotate(45deg); width: 6px; height: 6px; }
 @keyframes wd-blink { 50% { opacity: .25; } }
 @keyframes wd-pulse { 0% { box-shadow: 0 0 0 0 var(--fg); } 70% { box-shadow: 0 0 0 5px transparent; } 100% { box-shadow: 0 0 0 0 transparent; } }
-@media (prefers-reduced-motion: reduce) { .wd-status-dot { animation: none !important; } .wd-btn-arrow { transition: none; } }
+
+/* ---------- Call card: a conversation on screen ---------- */
+.wd-call { display: flex; flex-direction: column; gap: var(--space-4); padding: var(--space-5); background: var(--surface-raised); border: 1px solid var(--card-border); border-radius: var(--radius-lg); box-shadow: var(--shadow-card); min-width: 0; }
+.wd-call-head { display: flex; align-items: center; gap: var(--space-3); }
+.wd-call-who { display: flex; flex-direction: column; min-width: 0; }
+.wd-call-name { font-size: 16px; line-height: 22px; font-weight: 600; }
+.wd-call-meta { font-size: 13px; line-height: 18px; color: var(--ink-muted); font-variant-numeric: tabular-nums; }
+.wd-call-head .wd-status { margin-left: auto; }
+.wd-wave { display: flex; align-items: center; gap: 3px; height: 28px; }
+.wd-wave i { width: 3px; border-radius: 2px; background: var(--signal); opacity: .85; transform-origin: center; }
+.wd-wave--live i { animation: wd-wave 1.1s ease-in-out infinite; }
+.wd-wave--live i:nth-child(3n) { animation-delay: -.3s; } .wd-wave--live i:nth-child(3n+1) { animation-delay: -.6s; } .wd-wave--live i:nth-child(4n) { animation-delay: -.85s; }
+@keyframes wd-wave { 0%, 100% { transform: scaleY(.45); } 50% { transform: scaleY(1); } }
+.wd-bubbles { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 10px; }
+.wd-bubble { max-width: 85%; padding: 10px 14px; border-radius: 16px; font-size: 15px; line-height: 22px; background: var(--surface-sunken); color: var(--ink); border-top-left-radius: 6px; }
+.wd-bubble--caller { align-self: flex-end; background: var(--caller); color: var(--on-caller); border-top-left-radius: 16px; border-top-right-radius: 6px; }
+.wd-results { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: var(--space-2); }
+.wd-result { padding: 10px 14px; border-radius: var(--radius-md); background: var(--surface-raised); border: 1px solid var(--card-border); box-shadow: var(--shadow-card); }
+.wd-result span { display: block; font-size: 13px; line-height: 18px; color: var(--ink-muted); }
+.wd-result strong { display: block; margin-top: 2px; font-size: 16px; line-height: 22px; font-weight: 600; }
+@media (prefers-reduced-motion: reduce) { .wd-status-dot, .wd-wave i { animation: none !important; } .wd-btn-arrow { transition: none; } }
 
 /* ---------- Code block ---------- */
 .wd-code { background: var(--code-bg); color: var(--code-ink); border: 1px solid var(--code-border); border-radius: var(--radius-lg); overflow: hidden; min-width: 0; }
-.wd-code-bar { display: flex; align-items: center; gap: var(--space-1); padding: 6px 6px 0 10px; border-bottom: 1px solid rgba(255, 255, 255, 0.08); overflow-x: auto; scrollbar-width: none; }
-.wd-code-tab { appearance: none; border: 0; background: transparent; color: var(--code-muted); font-family: var(--font-mono); font-size: 12px; font-weight: 500; padding: 7px 8px 9px; cursor: pointer; border-bottom: 2px solid transparent; margin-bottom: -1px; white-space: nowrap; flex: none; }
+.wd-code-bar { display: flex; align-items: center; gap: var(--space-1); padding: 8px 8px 0 12px; border-bottom: 1px solid rgba(255, 255, 255, 0.08); overflow-x: auto; scrollbar-width: none; }
+.wd-code-tab { appearance: none; border: 0; background: transparent; color: var(--code-muted); font-family: var(--font-sans); font-size: 13px; font-weight: 600; padding: 7px 8px 10px; cursor: pointer; border-bottom: 2px solid transparent; margin-bottom: -1px; white-space: nowrap; flex: none; }
 .wd-code-tab:hover { color: var(--code-ink); }
 .wd-code-tab[aria-selected="true"] { color: var(--code-ink); border-bottom-color: var(--code-signal); }
-.wd-code-title { font-family: var(--font-mono); font-size: 12px; color: var(--code-muted); padding: 7px 8px 9px; }
-.wd-code-copy { margin-left: auto; appearance: none; border: 0; background: transparent; color: var(--code-muted); font-family: var(--font-mono); font-size: 11px; font-weight: 500; letter-spacing: 0.06em; text-transform: uppercase; padding: 6px 8px; border-radius: var(--radius-sm); cursor: pointer; margin-bottom: 4px; }
-.wd-code-copy:hover { color: var(--code-ink); background: rgba(255, 255, 255, 0.06); }
+.wd-code-title { font-family: var(--font-sans); font-size: 13px; font-weight: 600; color: var(--code-muted); padding: 7px 8px 10px; }
+.wd-code-copy { margin-left: auto; appearance: none; border: 0; background: transparent; color: var(--code-muted); font-family: var(--font-sans); font-size: 13px; font-weight: 600; padding: 6px 10px; border-radius: var(--radius-pill); cursor: pointer; margin-bottom: 4px; }
+.wd-code-copy:hover { color: var(--code-ink); background: rgba(255, 255, 255, 0.08); }
 .wd-code pre { margin: 0; padding: 16px 18px 18px; overflow-x: auto; font-family: var(--font-mono); font-size: 13.5px; line-height: 22px; tab-size: 2; }
 .wd-code code { font: inherit; background: none; padding: 0; color: inherit; }
 .tk-p { color: var(--code-signal); user-select: none; }
@@ -85,62 +132,71 @@ body { margin: 0; font-family: var(--font-sans); background: var(--surface); col
 .tk-k { color: var(--code-ink); font-weight: 500; }
 
 /* ---------- Callout ---------- */
-.wd-callout { display: grid; gap: 6px; padding: var(--space-4) var(--space-5); border-radius: var(--radius-lg); background: var(--surface-sunken); color: var(--ink); font-size: 15px; line-height: 24px; }
-.wd-callout-label { font-family: var(--font-mono); font-size: 11px; line-height: 14px; font-weight: 500; letter-spacing: 0.06em; text-transform: uppercase; color: var(--ink-muted); }
+.wd-callout { display: grid; gap: 4px; padding: var(--space-4) var(--space-5); border-radius: var(--radius-md); background: var(--surface-sunken); color: var(--ink); font-size: 15px; line-height: 24px; }
+.wd-callout-label { font-size: 13px; line-height: 18px; font-weight: 700; color: var(--ink-muted); }
 .wd-callout p { margin: 0; }
 .wd-callout--note { background: var(--signal-soft); }
 .wd-callout--note .wd-callout-label { color: var(--signal-strong); }
 .wd-callout--error { background: var(--status-failed-soft); }
 .wd-callout--error .wd-callout-label { color: var(--status-failed); }
 
-/* ---------- Product card ---------- */
-.wd-card { display: flex; flex-direction: column; gap: var(--space-3); padding: var(--space-5); border: 1px solid var(--line); border-radius: var(--radius-lg); background: var(--surface-raised); color: var(--ink); text-decoration: none; min-width: 0; transition: border-color .15s ease; }
-a.wd-card:hover { border-color: var(--line-strong); }
+/* ---------- Card (raised, soft shadow) ---------- */
+.wd-card { display: flex; flex-direction: column; gap: var(--space-3); padding: var(--space-5); border: 1px solid var(--card-border); border-radius: var(--radius-lg); background: var(--surface-raised); color: var(--ink); text-decoration: none; min-width: 0; box-shadow: var(--shadow-card); transition: transform .15s ease, box-shadow .15s ease; }
+a.wd-card:hover { transform: translateY(-2px); }
 .wd-card-top { display: flex; align-items: center; justify-content: space-between; gap: var(--space-3); }
-.wd-card-title { margin: 0; font-family: var(--font-display); font-size: 24px; line-height: 30px; font-weight: 700; letter-spacing: -0.01em; }
+.wd-card-title { margin: 0; font-family: var(--font-display); font-size: 22px; line-height: 28px; font-weight: 650; letter-spacing: -0.012em; }
 .wd-card-desc { margin: 0; font-size: 15px; line-height: 23px; color: var(--ink-muted); }
-.wd-card-meta { margin-top: auto; padding-top: var(--space-3); display: flex; align-items: center; justify-content: space-between; gap: var(--space-3); border-top: 1px solid var(--line); font-family: var(--font-mono); font-size: 12px; color: var(--ink-muted); }
-a.wd-card .wd-card-go { color: var(--signal); }
+.wd-card-meta { margin-top: auto; padding-top: var(--space-3); display: flex; align-items: center; justify-content: space-between; gap: var(--space-3); border-top: 1px solid var(--line); font-size: 14px; font-weight: 500; color: var(--ink-muted); }
+a.wd-card .wd-card-go { color: var(--signal-strong); }
+
+/* ---------- Tile (pastel category card, Notion-like) ---------- */
+.wd-tile { --tile: var(--tint-peach); display: flex; flex-direction: column; gap: var(--space-2); padding: var(--space-5); border-radius: var(--radius-xl); background: var(--tile); color: var(--ink); text-decoration: none; min-width: 0; transition: transform .15s ease; }
+a.wd-tile:hover { transform: translateY(-2px); }
+.wd-tile--peach { --tile: var(--tint-peach); } .wd-tile--blue { --tile: var(--tint-blue); } .wd-tile--mint { --tile: var(--tint-mint); }
+.wd-tile--lavender { --tile: var(--tint-lavender); } .wd-tile--yellow { --tile: var(--tint-yellow); }
+.wd-tile-tag { align-self: flex-start; padding: 3px 10px; border-radius: var(--radius-pill); background: var(--surface-raised); font-size: 13px; font-weight: 600; color: var(--ink); }
+.wd-tile-title { margin: var(--space-2) 0 0; font-size: 22px; line-height: 28px; font-weight: 650; letter-spacing: -0.012em; }
+.wd-tile-desc { margin: 0; font-size: 15px; line-height: 23px; color: var(--ink-muted); }
+.wd-tile-go { margin-top: auto; padding-top: var(--space-3); display: inline-flex; align-items: center; gap: 6px; font-size: 14px; font-weight: 600; color: var(--ink); }
 
 /* ---------- Prose (articles, docs) ---------- */
 .wd-prose { max-width: var(--measure); font-size: 17px; line-height: 28px; color: var(--ink); }
 .wd-prose > * + * { margin-top: var(--space-5); }
-.wd-prose h2 { font-family: var(--font-display); font-size: 24px; line-height: 30px; font-weight: 700; letter-spacing: -0.01em; margin-top: var(--space-7); text-wrap: balance; }
+.wd-prose h2 { font-family: var(--font-display); font-size: 24px; line-height: 31px; font-weight: 650; letter-spacing: -0.012em; margin-top: var(--space-7); text-wrap: balance; }
 .wd-prose h3 { font-size: 20px; line-height: 28px; font-weight: 600; margin-top: var(--space-6); }
 .wd-prose h2 + *, .wd-prose h3 + * { margin-top: var(--space-3); }
 .wd-prose p, .wd-prose ul, .wd-prose ol, .wd-prose blockquote, .wd-prose table, .wd-prose figure, .wd-prose hr { margin-bottom: 0; }
 .wd-prose ul, .wd-prose ol { padding-left: 1.3em; }
 .wd-prose li + li { margin-top: var(--space-2); }
 .wd-prose li::marker { color: var(--ink-muted); }
-.wd-prose ol > li::marker { font-family: var(--font-mono); font-size: 0.85em; }
-.wd-prose strong { font-weight: 600; }
+.wd-prose strong { font-weight: 650; }
 .wd-prose a { color: var(--link); text-decoration: underline; text-decoration-thickness: 1px; text-underline-offset: 3px; }
 .wd-prose a:hover { text-decoration-thickness: 2px; }
-.wd-prose :not(pre) > code { font-family: var(--font-mono); font-size: 0.84em; padding: 2px 5px; border-radius: var(--radius-sm); background: var(--surface-sunken); color: var(--ink); }
-.wd-prose blockquote { margin-inline: 0; padding: var(--space-4) var(--space-5); border-radius: var(--radius-lg); background: var(--signal-soft); color: var(--ink); font-family: var(--font-display); font-size: 19px; line-height: 28px; font-weight: 600; letter-spacing: -0.01em; }
+.wd-prose :not(pre) > code { font-family: var(--font-mono); font-size: 0.84em; padding: 2px 6px; border-radius: var(--radius-sm); background: var(--surface-sunken); color: var(--ink); }
+.wd-prose blockquote { margin-inline: 0; padding: var(--space-4) var(--space-5); border-radius: var(--radius-lg); background: var(--signal-soft); color: var(--ink); font-size: 20px; line-height: 30px; font-weight: 600; letter-spacing: -0.01em; }
 .wd-prose blockquote p { margin: 0; }
 .wd-prose hr { border: 0; height: 1px; background: var(--line); margin-block: var(--space-7); }
 .wd-prose .wd-table-wrap { overflow-x: auto; }
 .wd-prose table { width: 100%; border-collapse: collapse; font-size: 15px; line-height: 23px; font-variant-numeric: tabular-nums; }
-.wd-prose th { text-align: left; font-family: var(--font-mono); font-size: 11px; line-height: 14px; font-weight: 500; letter-spacing: 0.06em; text-transform: uppercase; color: var(--ink-muted); padding: 10px 16px 10px 0; border-bottom: 1px solid var(--line-strong); }
+.wd-prose th { text-align: left; font-size: 13px; line-height: 18px; font-weight: 600; color: var(--ink-muted); padding: 10px 16px 10px 0; border-bottom: 1px solid var(--line-strong); }
 .wd-prose td { padding: 10px 16px 10px 0; border-bottom: 1px solid var(--line); vertical-align: top; }
-.wd-prose td.num, .wd-prose th.num { text-align: right; font-family: var(--font-mono); font-size: 13.5px; }
+.wd-prose td.num, .wd-prose th.num { text-align: right; }
+.wd-prose td.num { font-family: var(--font-mono); font-size: 13.5px; }
 .wd-prose .wd-code { margin-inline: 0; }
 .wd-prose img { max-width: 100%; border-radius: var(--radius-lg); }
 
 /* ---------- Theme switch (System / Light / Dark) ---------- */
 /* A fieldset of three real radios: arrow keys move between them, labels stay visible.
-   Ship it with the `hidden` attribute and let the theme script reveal it, so visitors
-   without JavaScript never see a control that can't work (they still get the OS theme). */
+   Ship it with the `hidden` attribute and let the theme script reveal it. */
 .wd-theme { display: inline-flex; align-items: center; gap: var(--space-2); margin: 0; padding: 0; border: 0; min-width: 0; }
 .wd-theme[hidden] { display: none; }
-.wd-theme-legend { float: left; padding: 0; margin-right: var(--space-2); font-family: var(--font-mono); font-size: 11px; line-height: 28px; font-weight: 500; letter-spacing: 0.06em; text-transform: uppercase; color: var(--ink-muted); }
-.wd-theme-options { display: inline-flex; padding: 2px; border: 1px solid var(--line); border-radius: var(--radius-md); background: var(--surface-sunken); }
+.wd-theme-legend { float: left; padding: 0; margin-right: var(--space-2); font-size: 14px; line-height: 30px; font-weight: 500; color: var(--ink-muted); }
+.wd-theme-options { display: inline-flex; padding: 3px; border-radius: var(--radius-pill); background: var(--surface-sunken); }
 .wd-theme-option { position: relative; display: inline-flex; }
 .wd-theme-option input { position: absolute; inset: 0; opacity: 0; margin: 0; cursor: pointer; }
-.wd-theme-option span { display: inline-flex; align-items: center; height: 24px; padding: 0 10px; border-radius: 5px; font-size: 13px; line-height: 1; font-weight: 500; color: var(--ink-muted); white-space: nowrap; }
+.wd-theme-option span { display: inline-flex; align-items: center; height: 26px; padding: 0 12px; border-radius: var(--radius-pill); font-size: 13px; line-height: 1; font-weight: 600; color: var(--ink-muted); white-space: nowrap; }
 .wd-theme-option input:hover + span { color: var(--ink); }
-.wd-theme-option input:checked + span { background: var(--surface-raised); color: var(--ink); box-shadow: 0 0 0 1px var(--line); }
+.wd-theme-option input:checked + span { background: var(--surface-raised); color: var(--ink); box-shadow: var(--shadow-card); }
 .wd-theme-option input:focus-visible + span { outline: 2px solid var(--focus); outline-offset: 1px; }
-/* Applied for one frame while the theme changes, so hover and border transitions don't animate the switch. */
+/* Applied for one frame while the theme changes, so transitions don't animate the switch. */
 .wd-theme-switching, .wd-theme-switching *, .wd-theme-switching *::before, .wd-theme-switching *::after { transition: none !important; }

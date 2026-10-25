@@ -1,10 +1,12 @@
 ---
 import Base from "../layouts/Base.astro";
 import Code from "../components/Code.astro";
-import { USE_CASES } from "../use-cases";
+import { USE_CASES, useCaseBySlug } from "../use-cases";
 import CallComposer from "../components/CallComposer.astro";
 
 const GITHUB = "https://github.com/welldunai/offhook";
+const scene = useCaseBySlug["appointment-confirmation"];
+const WAVE = [6, 10, 18, 26, 14, 8, 20, 28, 22, 12, 6, 9, 16, 24, 18, 10, 6, 8, 14, 20, 12, 7, 5, 9, 13, 8, 6, 4];
 
 const teamSteps = [
   { title: "Describe the call", body: "Say who the agent is calling and what you need to find out, the way you'd brief a colleague. No scripts or call flows to draw." },
@@ -101,34 +103,54 @@ python run.py`;
   title="Offhook — describe the call, an AI agent makes it"
   description="Describe a call in plain English and Offhook's AI agent makes it: it holds the conversation, records the answers and gives you the transcript. For recruiting, appointments, sales and any routine call. Open source."
 >
-  <section class="hero hero--composer wd-container">
+  <section class="hero hero--human wd-container">
     <div class="hero-copy">
-      <p class="wd-eyebrow">AI phone agent<span class="wd-eyebrow-sep">·</span>Open source</p>
-      <h1 class="display-xl">Describe the call. Offhook makes&nbsp;it.</h1>
+      <h1 class="display-xl">Describe the call.<br /><span class="hero-accent">Offhook makes&nbsp;it.</span></h1>
       <p class="lede body-lg">
-        Tell it in plain English who it's calling and what you need to find out. It holds the
-        conversation, records the answers, and gives you the transcript.
+        Tell Offhook who to call and what you need to find out. It has a natural conversation,
+        writes down the answers, and sends you the transcript.
       </p>
-      <p class="hero-meta">For recruiting, appointments, sales follow-ups, and any other routine call.</p>
+      <CallComposer />
     </div>
-    <CallComposer />
+
+    <figure class="hero-scene">
+      <div class="wd-call">
+        <div class="wd-call-head">
+          <span class="wd-avatar wd-avatar--lg wd-avatar--blue" aria-hidden="true">A</span>
+          <div class="wd-call-who">
+            <span class="wd-call-name">{scene.agent.name} from {scene.agent.company}</span>
+            <span class="wd-call-meta">Calling Priya · 0:48</span>
+          </div>
+          <span class="wd-status wd-status--live"><span class="wd-status-dot" aria-hidden="true"></span>On the call</span>
+        </div>
+        <div class="wd-wave wd-wave--live" aria-hidden="true">{WAVE.map((h) => <i style={`height:${h}px`}></i>)}</div>
+        <ul class="wd-bubbles" aria-label="Transcript">
+          <li class="wd-bubble">You're booked for Tuesday at three with Dr. Rao. Does that still work?</li>
+          <li class="wd-bubble wd-bubble--caller">Something came up. Could we do Wednesday afternoon?</li>
+          <li class="wd-bubble">Of course. I have 2:30 on Wednesday. Shall I move you?</li>
+        </ul>
+      </div>
+      <p class="wd-label scene-label">What {scene.agent.name} wrote down</p>
+      <div class="wd-results">
+        <div class="wd-result"><span>Kept Tuesday?</span><strong>No</strong></div>
+        <div class="wd-result"><span>New time</span><strong class="scene-ok">Wednesday, 2:30 PM</strong></div>
+      </div>
+      <figcaption class="scene-caption">An example call from the appointment use case.</figcaption>
+    </figure>
   </section>
 
   <section class="section" id="use-cases" aria-labelledby="uc-title"><div class="wd-container"><div class="section-inner">
     <div class="section-head">
       <p class="wd-eyebrow">Examples</p>
-      <h2 id="uc-title" class="display-md">Calls teams hand to Offhook.</h2>
+      <h2 id="uc-title" class="display-md">Calls teams hand to Offhook</h2>
     </div>
     <div class="uc-grid">
       {USE_CASES.map((u) => (
-        <a class="wd-card uc-card" href={`/use-cases/${u.slug}/`}>
-          <div class="wd-card-top"><p class="wd-eyebrow">{u.team}</p></div>
-          <h3 class="wd-card-title">{u.title}</h3>
-          <p class="wd-card-desc">{u.summary}</p>
-          <ul class="uc-fields" aria-label="What the agent records">
-            {u.fields.map((f) => <li>{f.key}</li>)}
-          </ul>
-          <div class="wd-card-meta"><span>Hear a sample call</span><span class="wd-card-go" aria-hidden="true">→</span></div>
+        <a class:list={["wd-tile", `wd-tile--${u.tint}`]} href={`/use-cases/${u.slug}/`}>
+          <span class="wd-tile-tag">{u.team}</span>
+          <h3 class="wd-tile-title">{u.title}</h3>
+          <p class="wd-tile-desc">{u.summary}</p>
+          <span class="wd-tile-go">See a sample call <span class="wd-arrow" aria-hidden="true">→</span></span>
         </a>
       ))}
     </div>
@@ -137,7 +159,7 @@ python run.py`;
   <section class="section" id="for-teams" aria-labelledby="teams-title"><div class="wd-container"><div class="section-inner">
     <div class="section-head">
       <p class="wd-eyebrow">How it works</p>
-      <h2 id="teams-title" class="display-md">From a sentence to a finished call.</h2>
+      <h2 id="teams-title" class="display-md">From a sentence to a finished call</h2>
     </div>
     <ol class="team-steps">
       {teamSteps.map((s, i) => (
@@ -153,7 +175,7 @@ python run.py`;
   <section class="section dev-intro" id="developers" aria-labelledby="dev-title"><div class="wd-container"><div class="section-inner">
     <div class="section-head">
       <p class="wd-eyebrow">For developers</p>
-      <h2 id="dev-title" class="display-md">Open source. Your keys, your servers.</h2>
+      <h2 id="dev-title" class="display-md">Open source, on your own keys and servers</h2>
       <p class="body-lg dev-lede">
         Offhook is an API you can run yourself. It uses your own speech, voice, model and phone
         carrier accounts, keeps a full record of every call, and is licensed under Apache-2.0.
@@ -164,7 +186,7 @@ python run.py`;
   <section class="section section--tight" id="how" aria-labelledby="how-title"><div class="wd-container"><div class="section-inner">
     <div class="section-head">
       <p class="wd-eyebrow">The API</p>
-      <h2 id="how-title" class="display-md">Three requests to a real phone call.</h2>
+      <h2 id="how-title" class="display-md">Three requests to a real phone call</h2>
     </div>
     <div class="how">
       <ol class="steps">
@@ -185,7 +207,7 @@ python run.py`;
   <section class="section" id="features" aria-labelledby="features-title"><div class="wd-container"><div class="section-inner">
     <div class="section-head">
       <p class="wd-eyebrow">What's included</p>
-      <h2 id="features-title" class="display-md">The plumbing a production call needs.</h2>
+      <h2 id="features-title" class="display-md">The plumbing a production call needs</h2>
     </div>
     <dl class="spec">
       {features.map((f) => (
@@ -201,7 +223,7 @@ python run.py`;
     <div class="qs">
       <div class="qs-copy">
         <p class="wd-eyebrow">Quickstart</p>
-        <h2 id="qs-title" class="display-md">Talk to an agent in your browser first.</h2>
+        <h2 id="qs-title" class="display-md">Run it on your machine</h2>
         <p class="body-lg qs-lede">
           You don't need a phone number to start. The playground runs the same pipeline over your
           microphone. You need Python 3.13, Docker, and free-tier keys from Deepgram, Cartesia and Groq.

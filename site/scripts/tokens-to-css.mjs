@@ -14,7 +14,7 @@ const themed = (th) => [
 const out = ["/* welldun — generated from tokens.json by scripts/tokens-to-css.mjs. Do not edit by hand. */"];
 for (const f of t.type.fonts) {
   const file = f.file.replace(/^fonts\//, "");
-  out.push(`@font-face { font-family: "${f.family}"; src: url("/fonts/${file}") format("woff2"); font-weight: ${f.weight}; font-style: normal; font-display: swap; }`);
+  out.push(`@font-face { font-family: "${f.family}"; src: url("/fonts/${file}") format("woff2"); font-weight: ${f.weight}; font-style: ${f.style ?? "normal"}; font-display: swap; }`);
 }
 // Bare :root is the first (light) theme. Saying color-scheme explicitly matters when the OS
 // is dark but the visitor picked light: scrollbars and form controls then follow the page.

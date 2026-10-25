@@ -10,6 +10,8 @@ export interface UseCase {
   slug: string;
   title: string; // the job, in the visitor's words
   team: string; // who makes these calls today
+  chip: string; // short label for the example chip
+  tint: "peach" | "blue" | "mint" | "lavender" | "yellow"; // its colour family
   summary: string; // one line for the card
   purpose: string; // the plain-English brief a visitor would type for this call
   agent: { name: string; company: string; role: string };
@@ -27,6 +29,8 @@ export interface UseCase {
 export const USE_CASES: UseCase[] = [
   {
     slug: "recruiter-screening",
+    chip: "Screen a candidate",
+    tint: "peach",
     title: "Screen candidates",
     team: "Recruiting",
     summary: "Follow up every application within the hour, check the basics, and book interviews with the people who fit.",
@@ -63,6 +67,8 @@ export const USE_CASES: UseCase[] = [
   },
   {
     slug: "appointment-confirmation",
+    chip: "Confirm an appointment",
+    tint: "blue",
     title: "Confirm appointments",
     team: "Front desk",
     summary: "Call patients the day before, confirm or reschedule, and free up slots that would otherwise go empty.",
@@ -98,6 +104,8 @@ export const USE_CASES: UseCase[] = [
   },
   {
     slug: "lead-qualification",
+    chip: "Follow up a lead",
+    tint: "mint",
     title: "Qualify leads",
     team: "Sales",
     summary: "Call back every demo request while it's still warm, learn what they need, and book the right ones with your team.",

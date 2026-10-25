@@ -11,38 +11,40 @@ import { USE_CASES } from "../use-cases";
     <textarea
       id="purpose"
       name="purpose"
-      rows="4"
+      rows="3"
       maxlength="500"
-      placeholder="e.g. Call customers who missed a delivery yesterday. Find a new delivery day and note any instructions for the driver."
+      placeholder="Call customers who missed a delivery yesterday. Find a new delivery day and note any instructions for the driver."
     ></textarea>
     <div class="composer-bar">
-      <span class="composer-count" aria-live="polite"><span data-count>0</span> / 500</span>
-      <button class="wd-btn wd-btn--primary" type="submit">Plan the call <span class="wd-btn-arrow" aria-hidden="true">→</span></button>
+      <span class="composer-hint">Plain English is fine. <span class="composer-count" aria-live="polite"><span data-count>0</span>/500</span></span>
+      <button class="composer-go" type="submit" aria-label="Plan the call"><span class="wd-arrow" aria-hidden="true">→</span></button>
     </div>
   </form>
 
   <div class="composer-examples">
-    <span class="composer-examples-label">Or try an example</span>
+    <span class="composer-examples-label">Try one:</span>
     {USE_CASES.map((u) => (
-      <button type="button" class="composer-chip" data-example={u.slug}>{u.title}</button>
+      <button type="button" class:list={["wd-chip", `wd-chip--${u.tint}`]} data-example={u.slug}>
+        <span class:list={["wd-avatar", `wd-avatar--${u.tint}`]} aria-hidden="true">{u.agent.name[0]}</span>{u.chip}
+      </button>
     ))}
   </div>
 
   <p class="composer-notice" data-notice hidden>
-    Planning your own call needs the live demo, which opens soon. You can try the three examples now.
+    Planning your own call opens with the live demo, soon. Meanwhile, try one of the examples.
   </p>
 
   {USE_CASES.map((u) => (
     <section class="plan" data-plan={u.slug} data-purpose={u.purpose} hidden aria-label={`Call plan: ${u.title}`}>
       <div class="plan-head">
-        <span class="plan-title">Call plan</span>
+        <span class="plan-title">Here’s the plan</span>
         <span class="wd-badge">Example</span>
       </div>
       <dl class="plan-grid">
         <div><dt>The agent</dt><dd>{u.agent.name}, {u.agent.role} at {u.agent.company}</dd></div>
         <div><dt>Opens with</dt><dd>“{u.firstMessage}”</dd></div>
         <div><dt>Goal</dt><dd>{u.goal}</dd></div>
-        <div><dt>Records</dt><dd><ul class="uc-fields">{u.fields.map((f) => <li>{f.key}</li>)}</ul></dd></div>
+        <div><dt>Writes down</dt><dd><ul class="plan-fields">{u.fields.map((f) => <li>{f.label}</li>)}</ul></dd></div>
         <div><dt>You play</dt><dd>{u.brief}</dd></div>
       </dl>
       <div class="plan-actions">
