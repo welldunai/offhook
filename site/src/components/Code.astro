@@ -1,7 +1,9 @@
 ---
 // A welldun code block (.wd-code). One tab per entry; a single entry shows its label as a title.
+// Each tab is highlighted as bash unless it says otherwise.
+import { highlight } from "./highlight";
 interface Props {
-  tabs: { label: string; code: string }[];
+  tabs: { label: string; code: string; lang?: "bash" | "json" | "text" }[];
 }
 const { tabs } = Astro.props;
 const many = tabs.length > 1;
@@ -16,5 +18,5 @@ const many = tabs.length > 1;
       : <span class="wd-code-title">{tabs[0].label}</span>}
     <button type="button" class="wd-code-copy" aria-live="polite">Copy</button>
   </div>
-  {tabs.map((t, i) => <pre hidden={i !== 0}><code>{t.code}</code></pre>)}
+  {tabs.map((t, i) => <pre hidden={i !== 0}><code set:html={highlight(t.code, t.lang ?? "bash")} /></pre>)}
 </div>

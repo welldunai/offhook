@@ -43,7 +43,7 @@ const code = [
   -H "Content-Type: application/json" \\
   -d '${indent(callJson)}'`,
   },
-  { label: "3 · the result", code: JSON.stringify({ status: "completed", outcome: u.outcome }, null, 2) },
+  { label: "3 · the result", lang: "json" as const, code: JSON.stringify({ status: "completed", outcome: u.outcome }, null, 2) },
 ];
 ---
 

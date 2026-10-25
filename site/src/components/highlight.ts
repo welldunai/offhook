@@ -1,5 +1,6 @@
 // Tiny highlighters for the docs' own snippets (author-controlled content only).
-// Classes map to the design system's code tokens: tk-s = code-signal, tk-c = code-muted, tk-k = bold code-ink.
+// Classes map to the design system's code tokens: tk-s strings, tk-key keys, tk-n numbers and null,
+// tk-c comments and punctuation, tk-k commands.
 const esc = (s: string) => s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
 
 function json(src: string): string {
@@ -13,8 +14,12 @@ function json(src: string): string {
       const str = src.slice(i, j + 1);
       let k = j + 1;
       while (k < src.length && /\s/.test(src[k])) k++;
-      out += src[k] === ":" ? esc(str) : `<span class="tk-s">${esc(str)}</span>`;
+      out += src[k] === ":" ? `<span class="tk-key">${esc(str)}</span>` : `<span class="tk-s">${esc(str)}</span>`;
       i = j + 1;
+    } else if (/^(true|false|null)\b/.test(src.slice(i)) || (/[0-9]/.test(ch) && /[\s:[,]/.test(src[i - 1] ?? " "))) {
+      const m = src.slice(i).match(/^(true|false|null|-?[0-9][0-9.eE+-]*)/)![1];
+      out += `<span class="tk-n">${m}</span>`;
+      i += m.length;
     } else if ("{}[]:,".includes(ch)) {
       out += `<span class="tk-c">${ch}</span>`;
       i++;
