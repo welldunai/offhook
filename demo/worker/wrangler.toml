@@ -7,9 +7,15 @@ compatibility_date = "2026-10-01"
 ALLOWED_ORIGINS = "https://offhook.welldun.ai,http://localhost:4321,http://localhost:4370"
 PLANNER_MODEL = "llama-3.3-70b-versatile"
 DAILY_PLANS_PER_VISITOR = "10"
+DAILY_CALLS_PER_VISITOR = "3"
+MAX_CALL_SECONDS = "120"
+MAX_CONCURRENT = "5"
+DAILY_MINUTES_CAP = "300"
+# The voice server, through the Cloudflare Tunnel in production.
+VOICE_URL = "http://localhost:8765"
 
 # Secrets (wrangler secret put; .dev.vars locally):
-#   GROQ_API_KEY, TURNSTILE_SECRET_KEY, VISITOR_HASH_SALT
+#   GROQ_API_KEY, TURNSTILE_SECRET_KEY, VISITOR_HASH_SALT, DEMO_HMAC_SECRET (shared with the voice server)
 
 # The Gate: one instance holds every limit, so counts can't race.
 [[durable_objects.bindings]]
@@ -27,3 +33,7 @@ binding = "DB"
 database_name = "offhook-demo"
 database_id = "00000000-0000-0000-0000-000000000000"
 migrations_dir = "migrations"
+
+# Hourly: delete day-old sessions and free stale lines.
+[triggers]
+crons = ["0 * * * *"]

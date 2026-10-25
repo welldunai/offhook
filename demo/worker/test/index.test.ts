@@ -1,23 +1,10 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import worker, { type Env } from "../src/index";
-import { Quotas } from "../src/quotas";
-import { memorySql } from "./sqlite";
+import { testEnv } from "./env";
 
 let env: Env;
 beforeEach(() => {
-  // A Gate stand-in with the real quota logic, one per test.
-  const quotas = new Quotas(memorySql());
-  const gate = { take: async (...a: Parameters<Quotas["take"]>) => quotas.take(...a), refund: async (...a: Parameters<Quotas["refund"]>) => quotas.refund(...a) };
-  env = {
-    ALLOWED_ORIGINS: "https://offhook.welldun.ai",
-    PLANNER_MODEL: "m",
-    DAILY_PLANS_PER_VISITOR: "2",
-    GROQ_API_KEY: "k",
-    TURNSTILE_SECRET_KEY: "t",
-    VISITOR_HASH_SALT: "s",
-    GATE: { idFromName: () => "gate", get: () => gate } as unknown as Env["GATE"],
-    DB: {} as D1Database,
-  };
+  env = testEnv().env;
 });
 afterEach(() => vi.unstubAllGlobals());
 
