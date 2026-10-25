@@ -13,6 +13,9 @@ const canonical = new URL(Astro.url.pathname, Astro.site);
 const ogImage = new URL("/og.png", Astro.site);
 const ogAlt = "Offhook, by welldun: describe the call and it makes it. An example call where Alex from Acme Clinic moves an appointment.";
 const GITHUB = "https://github.com/welldunai/offhook";
+// The hosted dashboard: it shows your workspace if you're signed in, and sign-in
+// (with sign-up) if you're not.
+const APP = "https://app.offhook.welldun.ai";
 const NAV = [
   { label: "Use cases", href: "/use-cases/" },
   { label: "Docs", href: "/docs/" },
@@ -61,6 +64,7 @@ const NAV = [
         </nav>
         <div class="wd-header-actions">
           <a class="wd-btn wd-btn--secondary wd-btn--sm" href={GITHUB}>View on GitHub</a>
+          <a class="wd-btn wd-btn--primary wd-btn--sm" href={APP} data-app-link>Sign in</a>
         </div>
       </div>
     </header>
@@ -76,6 +80,7 @@ const NAV = [
           <span>Open source under Apache-2.0. Powered by <span class="oh-powered">welldun<span class="oh-by-dot">.</span></span></span>
         </div>
         <nav class="wd-footer-links" aria-label="Footer">
+          <a href={APP} data-app-link>Sign in</a>
           <a href={GITHUB}>GitHub</a>
           <a href="/docs/">Docs</a>
           <a href="https://x.com/welldunai">X</a>
@@ -85,6 +90,12 @@ const NAV = [
     </footer>
 
     <script>
+      // "Sign in" says "Dashboard" when Clerk's signed-in marker (__client_uat, a
+      // timestamp; 0 when signed out) is visible to this site. The link is the same
+      // either way: the dashboard handles both.
+      const signedIn = /(?:^|;\s*)__client_uat=([1-9]\d*)/.test(document.cookie);
+      if (signedIn) for (const a of document.querySelectorAll<HTMLAnchorElement>("[data-app-link]")) a.textContent = "Dashboard";
+
       // Header shadow after scroll.
       const head = document.querySelector(".wd-header");
       const onScroll = () => head?.setAttribute("data-scrolled", String(window.scrollY > 4));
