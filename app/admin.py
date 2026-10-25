@@ -107,7 +107,7 @@ async def cmd_seed_dev(args) -> None:
                     "emotion": os.getenv("VOICE_TTS_EMOTION", "positive and warm"),
                     "speed": float(os.getenv("VOICE_TTS_SPEED", "1.0")),
                 },
-                "llm": {"model": os.getenv("VOICE_LLM_MODEL", "llama-3.1-8b-instant")},
+                "llm": {"model": os.getenv("VOICE_LLM_MODEL", "openai/gpt-oss-20b")},
                 "language": "en",
             },
         )

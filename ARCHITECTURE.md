@@ -311,7 +311,7 @@ addition; no central dispatch to edit.
 Each `build_xxx(creds: ResolvedCreds)` returns a pipecat service. Defaults:
 - **STT**: `deepgram` → `DeepgramSTTService(api_key, model=settings.get("model","nova-3"))`.
 - **TTS**: `cartesia` → `CartesiaTTSService(api_key, voice_id(default 05a69c2d…), model(default "sonic-3"))`. Sonic-3 takes emotion/speed via `GenerationConfig`. `openai` → `OpenAITTSService`.
-- **LLM** (all OpenAI-compatible via `OpenAILLMService` + hardcoded `base_url`): `groq`→`llama-3.1-8b-instant` @ `api.groq.com/openai/v1`; `gemini`→`gemini-2.5-flash` @ Google's OpenAI-compat endpoint; `openrouter`→`google/gemini-2.5-flash`; `openai`→`gpt-4o-mini`. The **model** comes from the agent (`agent.llm_model` or `provider_settings.llm.model`), else the per-provider default. **`base_url` is fixed** (no arbitrary endpoints — locked design decision).
+- **LLM** (all OpenAI-compatible via `OpenAILLMService` + hardcoded `base_url`): `groq`→`openai/gpt-oss-20b` (reasoning effort `low`) @ `api.groq.com/openai/v1`; `gemini`→`gemini-2.5-flash` @ Google's OpenAI-compat endpoint; `openrouter`→`google/gemini-2.5-flash`; `openai`→`gpt-4o-mini`. The **model** comes from the agent (`agent.llm_model` or `provider_settings.llm.model`), else the per-provider default. **`base_url` is fixed** (no arbitrary endpoints — locked design decision).
 
 The pipeline calls `build_stt(cfg.stt)` etc.; it never names a concrete provider.
 

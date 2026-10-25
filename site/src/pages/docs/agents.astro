@@ -16,7 +16,7 @@ import Params from "../../components/docs/Params.astro";
           { name: "role", type: "string", desc: "The agent's role, e.g. <code>scheduling assistant</code>." },
           { name: "first_message", type: "string", desc: "The first thing the agent says when the call connects." },
           { name: "voice_id", type: "string", desc: "Overrides the voice set on the TTS connection." },
-          { name: "llm_model", type: "string", desc: "Overrides the model, e.g. <code>llama-3.3-70b-versatile</code>." },
+          { name: "llm_model", type: "string", desc: "Overrides the model, e.g. <code>openai/gpt-oss-120b</code>." },
           { name: "stt_connection_id", type: "uuid", required: true, desc: "Speech-to-text connection." },
           { name: "tts_connection_id", type: "uuid", required: true, desc: "Text-to-speech connection." },
           { name: "llm_connection_id", type: "uuid", required: true, desc: "Language model connection." },

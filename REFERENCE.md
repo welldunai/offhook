@@ -26,7 +26,7 @@ redaction. See `app/{auth,crypto,security,tenancy}`.
 | ---------- | ---------------- | -------------------------- |
 | STT        | Deepgram (`nova-3`) | `VOICE_STT_PROVIDER`    |
 | TTS        | Cartesia (`sonic-3`) | `VOICE_TTS_PROVIDER`   |
-| LLM        | Groq (`llama-3.1-8b-instant`) | `VOICE_LLM_PROVIDER` |
+| LLM        | Groq (`openai/gpt-oss-20b`) | `VOICE_LLM_PROVIDER` |
 | Telephony  | Plivo            | `VOICE_TELEPHONY_PROVIDER` |
 | Dev call   | SmallWebRTC (browser) | —                     |
 
@@ -239,11 +239,10 @@ hundred ms; if the bot feels laggy, the LLM is almost always the culprit.
 
 | Model | TTFT |
 | ----- | ---- |
-| `groq` / `llama-3.1-8b-instant` | **~310 ms** ✅ |
-| `groq` / `llama-3.3-70b-versatile` | ~430 ms (smarter) |
+| `groq` / `openai/gpt-oss-20b`, reasoning effort `low` | **~480 ms** ✅ (median of 5, October 2026) |
 | `openrouter` / `*:free` | 3–4 s ❌ (shared/queued — avoid for voice) |
 
-Groq has a free tier and is the default. Get a key at console.groq.com →
+Groq has a free tier and is the default. Groq retired its Llama models in 2026; `openai/gpt-oss-120b` is the smarter, slower option. Get a key at console.groq.com →
 `GROQ_API_KEY`. Avoid OpenRouter `:free` models — they're multi-second.
 
 **Voice (TTS).** Cartesia **`sonic-3`** is far warmer than `sonic-2`. Shape the

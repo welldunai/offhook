@@ -25,7 +25,7 @@ _BASE_URLS = {
 }
 
 
-def _openai_compatible(creds: ResolvedCreds, default_model: str) -> Any:
+def _openai_compatible(creds: ResolvedCreds, default_model: str, default_effort: str | None = None) -> Any:
     from pipecat.services.openai.llm import OpenAILLMService
 
     base_url = _BASE_URLS[creds.provider_name]
@@ -37,7 +37,7 @@ def _openai_compatible(creds: ResolvedCreds, default_model: str) -> Any:
         kwargs["base_url"] = base_url
     # Reasoning models (e.g. gpt-oss on Groq) think before answering; on a live
     # call, "low" keeps replies quick.
-    effort = creds.setting("reasoning_effort")
+    effort = creds.setting("reasoning_effort", default_effort)
     if effort:
         kwargs["params"] = OpenAILLMService.InputParams(extra={"reasoning_effort": effort})
     return OpenAILLMService(**kwargs)
@@ -50,7 +50,12 @@ def _build_openrouter(creds: ResolvedCreds) -> Any:
 
 @llm_registry.register("groq")
 def _build_groq(creds: ResolvedCreds) -> Any:
-    return _openai_compatible(creds, "llama-3.1-8b-instant")
+    # Groq retired its Llama models. gpt-oss reasons before it answers; at the
+    # default effort it is slower and sometimes emits malformed tool calls, so
+    # calls run at "low" unless the agent sets reasoning_effort.
+    model = creds.setting("model", "openai/gpt-oss-20b")
+    effort = "low" if str(model).startswith("openai/gpt-oss") else None
+    return _openai_compatible(creds, "openai/gpt-oss-20b", effort)
 
 
 @llm_registry.register("gemini")

@@ -11,7 +11,7 @@ Think Retell or Vapi, but you own it.
 ## Why Offhook
 
 - **Your keys, your infra.** Each tenant brings their own Deepgram, Cartesia, LLM and carrier keys. They are envelope-encrypted at rest and decrypted only for the length of a call.
-- **Fast enough to feel human.** Built on [Pipecat](https://github.com/pipecat-ai/pipecat). With Groq's `llama-3.1-8b-instant`, the model starts replying in about 300 ms.
+- **Fast enough to feel human.** Built on [Pipecat](https://github.com/pipecat-ai/pipecat). With Groq's `openai/gpt-oss-20b`, the model starts replying in about half a second.
 - **Production plumbing included.** Async dialing with idempotency keys, signed webhooks with retries, per-tenant rate limits and quotas, inbound calls, stable error codes and a per-call event timeline.
 - **Easy to extend.** Every STT, TTS, LLM, carrier and agent tool is a registry entry. Adding a new provider is one file.
 
