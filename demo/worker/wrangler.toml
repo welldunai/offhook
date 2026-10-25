@@ -1,0 +1,11 @@
+# The live demo's public API (DEMO.md). Free plan. Step 2a: routing, CORS and the planner.
+# Turnstile, the Gate, D1 and sessions come in the next steps.
+name = "offhook-demo"
+main = "src/index.ts"
+compatibility_date = "2026-10-01"
+
+[vars]
+ALLOWED_ORIGINS = "https://offhook.welldun.ai,http://localhost:4321,http://localhost:4370"
+PLANNER_MODEL = "llama-3.3-70b-versatile"
+
+# Secrets (wrangler secret put, or .dev.vars locally): GROQ_API_KEY
