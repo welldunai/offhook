@@ -2,9 +2,13 @@
 name = "offhook-demo"
 main = "src/index.ts"
 compatibility_date = "2026-10-01"
+account_id = "884ea67f0f6b2d08d50d15332fbacb09" # Welldun
+workers_dev = false
+routes = [{ pattern = "demo.offhook.welldun.ai", custom_domain = true }]
 
 [vars]
-ALLOWED_ORIGINS = "https://offhook.welldun.ai,http://localhost:4321,http://localhost:4370"
+# Production values. Local dev overrides ALLOWED_ORIGINS and VOICE_URL in .dev.vars.
+ALLOWED_ORIGINS = "https://offhook.welldun.ai"
 PLANNER_MODEL = "openai/gpt-oss-120b"
 DAILY_PLANS_PER_VISITOR = "10"
 DAILY_CALLS_PER_VISITOR = "3"
@@ -12,7 +16,7 @@ MAX_CALL_SECONDS = "120"
 MAX_CONCURRENT = "5"
 DAILY_MINUTES_CAP = "300"
 # The voice server, through the Cloudflare Tunnel in production.
-VOICE_URL = "http://localhost:8765"
+VOICE_URL = "https://voice.offhook.welldun.ai"
 
 # Secrets (wrangler secret put; .dev.vars locally):
 #   GROQ_API_KEY, TURNSTILE_SECRET_KEY, VISITOR_HASH_SALT, DEMO_HMAC_SECRET (shared with the voice server)
@@ -26,12 +30,11 @@ class_name = "Gate"
 tag = "v1"
 new_sqlite_classes = ["Gate"]
 
-# Sessions and the waitlist. The real database_id is filled in at deploy (milestone 4);
-# local dev (wrangler dev) uses a local database and ignores it.
+# Sessions and the waitlist. Local dev (wrangler dev) uses a local copy.
 [[d1_databases]]
 binding = "DB"
 database_name = "offhook-demo"
-database_id = "00000000-0000-0000-0000-000000000000"
+database_id = "efc98f58-b2c0-455c-82a2-b712ab4c52be"
 migrations_dir = "migrations"
 
 # Hourly: delete day-old sessions and free stale lines.

@@ -3,3 +3,6 @@ GROQ_API_KEY=
 TURNSTILE_SECRET_KEY=1x0000000000000000000000000000000AA
 VISITOR_HASH_SALT=dev-only-salt
 DEMO_HMAC_SECRET=dev-only-shared-secret
+# Local dev: the site on astro dev / serve, the voice server on this machine.
+ALLOWED_ORIGINS=http://localhost:4321,http://localhost:4370
+VOICE_URL=http://localhost:8765
