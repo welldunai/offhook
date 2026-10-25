@@ -1,8 +1,16 @@
 ---
 import Base from "../layouts/Base.astro";
 import Code from "../components/Code.astro";
+import { USE_CASES, useCaseBySlug, showValue } from "../use-cases";
 
 const GITHUB = "https://github.com/welldunai/offhook";
+const hero = useCaseBySlug["appointment-confirmation"];
+
+const teamSteps = [
+  { title: "Describe the call", body: "Who the agent is, what it should find out, and the facts it knows, such as the open slots or the role you're hiring for. Plain sentences, no scripts." },
+  { title: "Tell it who to call", body: "Each call takes a phone number and the details for that person. Offhook dials, holds the conversation, and reports busy lines and unanswered calls with a reason, so you know who to try again." },
+  { title: "Get answers, not recordings", body: "Each call comes back as structured results (confirmed, new time, interview slot), with the transcript and a summary, ready for your spreadsheet or system." },
+];
 
 const steps = [
   {
@@ -90,54 +98,93 @@ python run.py`;
 ---
 
 <Base
-  title="Offhook — AI phone calls you can run yourself"
-  description="Offhook is an open-source, self-hostable API for AI phone calls: speech-to-text, an LLM and text-to-speech over a real phone line, with your own keys and a full record of every call."
+  title="Offhook — AI phone agents for the calls your team makes"
+  description="Offhook is an AI phone agent for recruiting, appointment and sales calls. It holds natural conversations, records structured results and gives you every transcript. Open source; run it with your own keys."
 >
   <section class="hero wd-container">
     <div class="hero-copy">
-      <p class="wd-eyebrow">Open source<span class="wd-eyebrow-sep">·</span>Apache-2.0</p>
-      <h1 class="display-xl">AI phone calls you can run yourself.</h1>
+      <p class="wd-eyebrow">AI phone agents<span class="wd-eyebrow-sep">·</span>Open source</p>
+      <h1 class="display-xl">An AI agent for the calls your team makes every&nbsp;day.</h1>
       <p class="lede body-lg">
-        Offhook places and answers real phone calls with an AI agent. Bring your own provider keys,
-        run it on your own servers, and get a transcript and a full event log for every call.
+        Offhook calls candidates, patients and leads for you. It holds a natural conversation,
+        records what it learns as structured results, and gives you the transcript of every call.
       </p>
       <div class="wd-row hero-actions">
-        <a class="wd-btn wd-btn--primary" href="/docs/quickstart/">Read the quickstart <span class="wd-btn-arrow" aria-hidden="true">→</span></a>
-        <a class="wd-btn wd-btn--secondary" href={GITHUB}>View on GitHub</a>
+        <a class="wd-btn wd-btn--primary" href="#use-cases">See what it can do <span class="wd-btn-arrow" aria-hidden="true">→</span></a>
+        <a class="wd-btn wd-btn--secondary" href="#developers">Run it yourself</a>
       </div>
-      <p class="hero-meta">Python · Postgres · built on Pipecat</p>
+      <p class="hero-meta">Live demo and hosted version coming soon</p>
     </div>
 
-    <figure class="call-record" aria-label="Example of a call record">
+    <figure class="call-record" aria-label={`Example: ${hero.title.toLowerCase()}`}>
       <div class="cr-head">
-        <span class="cr-id">8f2c4d1e-…</span>
+        <span class="cr-id">{hero.agent.company} · sample call</span>
         <span class="wd-badge">Example</span>
         <span class="wd-status wd-status--done"><span class="wd-status-dot" aria-hidden="true"></span>completed</span>
       </div>
-      <dl class="cr-facts">
-        <div><dt>To</dt><dd>+1 415 555 0123</dd></div>
-        <div><dt>Agent</dt><dd>Alex · Acme Clinic</dd></div>
-        <div><dt>Context</dt><dd>Priya · Tuesday at 3 PM</dd></div>
-      </dl>
-      <ol class="cr-timeline" aria-label="Event timeline">
-        <li><span class="wd-status"><span class="wd-status-dot" aria-hidden="true"></span>queued</span><span class="cr-t">00:00.0</span></li>
-        <li><span class="wd-status wd-status--dialing"><span class="wd-status-dot" aria-hidden="true"></span>dialing</span><span class="cr-t">00:00.4</span></li>
-        <li><span class="wd-status wd-status--live"><span class="wd-status-dot" aria-hidden="true"></span>in progress</span><span class="cr-t">00:06.1</span></li>
-        <li><span class="wd-status wd-status--done"><span class="wd-status-dot" aria-hidden="true"></span>completed</span><span class="cr-t">01:48.3</span></li>
-      </ol>
       <div class="cr-transcript" aria-label="Transcript">
-        <p><span class="who">Agent</span>Hi, this is Alex from Acme Clinic. Am I speaking with Priya?</p>
-        <p><span class="who">Caller</span>Yes, that's me.</p>
-        <p><span class="who">Agent</span>I'm calling to confirm your appointment with Dr. Rao on Tuesday at 3 PM. Does that still work?</p>
-        <p><span class="who">Caller</span>It does, thanks.</p>
+        {hero.sample.slice(2, 6).map((t) => (
+          <p><span class="who">{t.who === "agent" ? "Agent" : "Patient"}</span>{t.text}</p>
+        ))}
       </div>
-      <div class="cr-outcome"><span class="cr-label">Outcome</span><code>{`{"confirmed": true}`}</code></div>
+      <dl class="cr-facts cr-results" aria-label="What the agent recorded">
+        {hero.fields.map((f) => (
+          <div><dt>{f.label}</dt><dd>{showValue(hero.outcome[f.key])}</dd></div>
+        ))}
+      </dl>
     </figure>
   </section>
 
-  <section class="section" id="how" aria-labelledby="how-title"><div class="wd-container"><div class="section-inner">
+  <section class="section" id="use-cases" aria-labelledby="uc-title"><div class="wd-container"><div class="section-inner">
+    <div class="section-head">
+      <p class="wd-eyebrow">Use cases</p>
+      <h2 id="uc-title" class="display-md">Pick a call your team makes today.</h2>
+    </div>
+    <div class="uc-grid">
+      {USE_CASES.map((u) => (
+        <a class="wd-card uc-card" href={`/use-cases/${u.slug}/`}>
+          <div class="wd-card-top"><p class="wd-eyebrow">{u.team}</p></div>
+          <h3 class="wd-card-title">{u.title}</h3>
+          <p class="wd-card-desc">{u.summary}</p>
+          <ul class="uc-fields" aria-label="What the agent records">
+            {u.fields.map((f) => <li>{f.key}</li>)}
+          </ul>
+          <div class="wd-card-meta"><span>Hear a sample call</span><span class="wd-card-go" aria-hidden="true">→</span></div>
+        </a>
+      ))}
+    </div>
+  </div></div></section>
+
+  <section class="section" id="for-teams" aria-labelledby="teams-title"><div class="wd-container"><div class="section-inner">
     <div class="section-head">
       <p class="wd-eyebrow">How it works</p>
+      <h2 id="teams-title" class="display-md">You describe the call. Offhook makes it.</h2>
+    </div>
+    <ol class="team-steps">
+      {teamSteps.map((s, i) => (
+        <li>
+          <span class="step-no">{String(i + 1).padStart(2, "0")}</span>
+          <h3 class="title">{s.title}</h3>
+          <p>{s.body}</p>
+        </li>
+      ))}
+    </ol>
+  </div></div></section>
+
+  <section class="section dev-intro" id="developers" aria-labelledby="dev-title"><div class="wd-container"><div class="section-inner">
+    <div class="section-head">
+      <p class="wd-eyebrow">For developers</p>
+      <h2 id="dev-title" class="display-md">Open source. Your keys, your servers.</h2>
+      <p class="body-lg dev-lede">
+        Offhook is an API you can run yourself. It uses your own speech, voice, model and phone
+        carrier accounts, keeps a full record of every call, and is licensed under Apache-2.0.
+      </p>
+    </div>
+  </div></div></section>
+
+  <section class="section section--tight" id="how" aria-labelledby="how-title"><div class="wd-container"><div class="section-inner">
+    <div class="section-head">
+      <p class="wd-eyebrow">The API</p>
       <h2 id="how-title" class="display-md">Three requests to a real phone call.</h2>
     </div>
     <div class="how">

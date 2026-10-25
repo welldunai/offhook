@@ -1,0 +1,121 @@
+---
+import Base from "../../layouts/Base.astro";
+import Code from "../../components/Code.astro";
+import { USE_CASES, showValue, type UseCase } from "../../use-cases";
+
+export function getStaticPaths() {
+  return USE_CASES.map((u) => ({ params: { slug: u.slug }, props: { u } }));
+}
+
+const { u } = Astro.props as { u: UseCase };
+const others = USE_CASES.filter((o) => o.slug !== u.slug);
+const personLabel = u.person.replace(/^the /, "").replace(/^./, (c) => c.toUpperCase());
+
+const agentJson = JSON.stringify(
+  {
+    name: u.agent.name,
+    company: u.agent.company,
+    role: u.agent.role,
+    instructions: u.instructions,
+    first_message: u.firstMessage,
+    stt_connection_id: "<stt-connection-id>",
+    tts_connection_id: "<tts-connection-id>",
+    llm_connection_id: "<llm-connection-id>",
+    telephony_connection_id: "<telephony-connection-id>",
+  },
+  null,
+  2,
+);
+const callJson = JSON.stringify({ agent_id: "<agent-id>", to_number: "+14155550123", context: u.context }, null, 2);
+const indent = (j: string) => j.split("\n").map((l, i) => (i ? "  " + l : l)).join("\n");
+const code = [
+  {
+    label: "1 · create the agent",
+    code: `curl -X POST https://<your-offhook-host>/v1/agents \\
+  -H "Authorization: Bearer $OFFHOOK_KEY" \\
+  -H "Content-Type: application/json" \\
+  -d '${indent(agentJson)}'`,
+  },
+  {
+    label: "2 · place a call",
+    code: `curl -X POST https://<your-offhook-host>/v1/calls \\
+  -H "Authorization: Bearer $OFFHOOK_KEY" \\
+  -H "Content-Type: application/json" \\
+  -d '${indent(callJson)}'`,
+  },
+  { label: "3 · the result", code: JSON.stringify({ status: "completed", outcome: u.outcome }, null, 2) },
+];
+---
+
+<Base title={`${u.title} with an AI phone agent · Offhook`} description={u.summary}>
+  <section class="wd-container uc-page">
+    <header class="uc-head">
+      <p class="wd-eyebrow"><a class="crumb" href="/#use-cases">Use cases</a><span class="wd-eyebrow-sep">/</span>{u.team}</p>
+      <h1 class="display-lg">{u.title}</h1>
+      <p class="body-lg uc-lede">{u.summary}</p>
+      <div class="wd-row">
+        <button class="wd-btn wd-btn--primary" type="button" disabled aria-describedby="demo-soon">Try it live</button>
+        <a class="wd-btn wd-btn--secondary" href="/docs/quickstart/">Run it yourself</a>
+      </div>
+      <p class="hero-meta" id="demo-soon">The live demo is coming soon: you'll play {u.person} and talk to {u.agent.name} in your browser.</p>
+    </header>
+
+    <div class="uc-body">
+      <aside class="uc-spec" aria-label="The call">
+        <dl>
+          <div><dt>Who calls</dt><dd>{u.agent.name}, {u.agent.role} at {u.agent.company}</dd></div>
+          <div><dt>Who answers</dt><dd>{personLabel}</dd></div>
+          <div><dt>The goal</dt><dd>{u.goal}</dd></div>
+        </dl>
+        <h2 class="uc-sub">What the agent records</h2>
+        <table class="uc-fields-table">
+          <tbody>
+            {u.fields.map((f) => (
+              <tr><td><code>{f.key}</code><span>{f.label}</span></td></tr>
+            ))}
+          </tbody>
+        </table>
+        <p class="uc-note">{u.agent.company} is a made-up company. Change the instructions and facts to fit your own calls.</p>
+      </aside>
+
+      <section class="uc-call" aria-labelledby="sample-title">
+        <div class="uc-call-head">
+          <h2 id="sample-title" class="uc-sub">A sample call</h2>
+          <span class="wd-badge">Example</span>
+        </div>
+        <ol class="chat">
+          {u.sample.map((t) => (
+            <li class:list={["chat-turn", t.who === "agent" ? "is-agent" : "is-person"]}>
+              <span class="chat-who">{t.who === "agent" ? u.agent.name : personLabel}</span>
+              <p>{t.text}</p>
+            </li>
+          ))}
+        </ol>
+        <div class="uc-outcome">
+          <span class="uc-sub">Recorded</span>
+          <dl>
+            {u.fields.map((f) => (
+              <div><dt>{f.label}</dt><dd>{showValue(u.outcome[f.key])}</dd></div>
+            ))}
+          </dl>
+        </div>
+      </section>
+    </div>
+
+    <section class="uc-build" aria-labelledby="build-title">
+      <h2 id="build-title" class="display-md">Build this call</h2>
+      <p class="body-lg uc-lede">Two requests to a self-hosted Offhook. The instructions below are exactly what the sample agent runs on.</p>
+      <Code tabs={code} />
+    </section>
+
+    <nav class="uc-more" aria-label="Other use cases">
+      {others.map((o) => (
+        <a class="wd-card" href={`/use-cases/${o.slug}/`}>
+          <span class="wd-eyebrow">{o.team}</span>
+          <span class="wd-card-title">{o.title}</span>
+          <span class="wd-card-desc">{o.summary}</span>
+        </a>
+      ))}
+    </nav>
+  </section>
+</Base>
