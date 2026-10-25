@@ -36,7 +36,7 @@ A form with: agent name, company, what the agent should achieve (instructions), 
 
 1. **Choose** a use case card, or "Write your own".
 2. **Brief:** who you are in this call and what the agent is trying to do ("You're the candidate. You're interested but have a 60-day notice period.").
-3. **Start call:** Turnstile check, then the browser asks for the microphone and shows "Connecting…" while a line warms up. A two-minute countdown runs; the agent speaks first.
+3. **Start call:** Turnstile check, then the browser asks for the microphone and shows "Connecting…". A two-minute countdown runs; the agent speaks first.
 4. **Live view:** the transcript appears as you talk, and the call status moves from connecting to in progress to completed.
 5. **Results:** the full transcript, the recorded fields as a small table, the agent's summary, and its response time on each turn.
 6. **Next:** "Join the waitlist for hosted Offhook" (email, company, which use case) and "Run it yourself" (docs).
@@ -61,80 +61,97 @@ Each limit has a clear message in the UI, saying what happened and when the visi
 - IP addresses are only stored as salted hashes that rotate daily.
 - Waitlist entries keep email, company and use case, and are used only to contact people about hosted Offhook.
 
-## Architecture (all on Cloudflare)
+## Architecture (Cloudflare free plan + your machine)
+
+Everything public runs on Cloudflare's free plan. The voice server, which runs Offhook's real Python pipeline, runs on your own computer and is reachable only through a Cloudflare Tunnel. Nothing on your machine is opened to the internet directly.
 
 ```
 browser (offhook.welldun.ai, static)
    │  1. POST /sessions  {use case or custom, Turnstile token}
    ▼
-Worker  demo.offhook.welldun.ai  (TypeScript)
+Worker  demo.offhook.welldun.ai  (TypeScript, free plan)
    ├─ verifies Turnstile
+   ├─ checks the voice server is up (cached health check)
    ├─ asks the Gate (one Durable Object) for a slot: per-visitor quota,
    │  site-wide concurrency, daily minute cap, all checked atomically
-   ├─ writes the session to D1 and returns {session_id, ws_url}
+   └─ stores the session in D1, returns {session_id, ticket, voice_url}
    │
-   │  2. browser opens a WebSocket to ws_url (mic audio in, agent audio out)
+   │  2. browser opens the audio WebSocket to voice_url with the ticket
    ▼
-Line (Durable Object) ──proxies the WebSocket──▶ Container: the Python voice server
-                                                   ├─ Pipecat pipeline, reused from Offhook
-                                                   ├─ 2-minute and 20-second-silence cutoffs
-                                                   └─ calls Deepgram, Cartesia, Groq (HTTPS/WSS on 443)
-   3. at hang-up the container sends transcript, outcome and per-turn latency
-      back to the Worker (signed); the Worker stores them in D1 and frees the slot
+Cloudflare Tunnel  voice.offhook.welldun.ai ──▶ your machine: voice server (Docker)
+                                                 ├─ claims the ticket from the Worker (single use)
+                                                 │  and gets the session's agent config
+                                                 ├─ runs the Pipecat pipeline (reused from Offhook)
+                                                 ├─ 2-minute and 20-second-silence cutoffs
+                                                 └─ calls Deepgram, Cartesia, Groq
+   3. at hang-up the voice server posts transcript, outcome and per-turn latency
+      to the Worker (signed); the Worker stores them in D1 and frees the slot
    4. browser fetches GET /sessions/{id} for the results page
 ```
 
-### Why WebSocket audio, not WebRTC
-
-Cloudflare Containers accept traffic only through a Worker (HTTP and WebSockets) and can make outbound connections only on ports 80 and 443. WebRTC wants direct UDP, which would force every call through a TURN relay. Streaming audio over the WebSocket instead keeps the whole path on one connection: the browser captures the microphone with an AudioWorklet, sends 16 kHz PCM frames, and plays the agent's audio back the same way. It is slightly less resilient than WebRTC on bad networks, which is acceptable for a two-minute demo. No TURN server is needed.
-
 ### The pieces
 
-| Piece | What it is | State |
+| Piece | What it is | Where |
 | --- | --- | --- |
-| **Worker** | Routes `/sessions`, `/sessions/{id}`, `/sessions/{id}/ws`, `/waitlist` and `/internal/results`; checks Turnstile and CORS | None |
-| **Gate** (Durable Object, one instance) | Hands out and frees call slots; enforces the per-visitor daily quota, site-wide concurrency and the daily minute cap. One object, so the counts can't race | Its own storage |
-| **Line** (Durable Object + Container) | Starts or reuses a container and proxies the call's WebSocket to it. A small fixed pool of lines (e.g. 2, each taking up to 3 calls) keeps containers warm instead of starting one per call | None |
-| **Voice server** (Container) | A slim Python entrypoint, `app/demo/server.py`: one WebSocket route, builds the agent from the session config, runs the existing pipeline. No database, no tenant API | None |
-| **D1** | `demo_sessions` (config, visitor hash, status, transcript, outcome, latency, expires_at) and `waitlist_entries` | Durable |
+| **Worker** | Routes `/sessions`, `/sessions/{id}`, `/waitlist` and the internal `/claim` and `/results`; checks Turnstile, CORS and voice-server health | Cloudflare, free |
+| **Gate** (Durable Object, one instance) | Hands out and frees call slots; enforces the per-visitor daily quota, site-wide concurrency and the daily minute cap. One object, so counts can't race | Cloudflare, free (SQLite storage) |
+| **D1** | `demo_sessions` (config, visitor hash, status, transcript, outcome, latency, expires_at) and `waitlist_entries` | Cloudflare, free |
+| **Tunnel** | `cloudflared` on your machine, publishing only the voice server's port as `voice.offhook.welldun.ai` | Cloudflare, free |
+| **Voice server** | A slim Python entrypoint, `app/demo/server.py`, in Docker: one health route and one WebSocket route. No database, no tenant API | Your machine |
 
-A scheduled Worker (cron, hourly) deletes demo sessions older than 24 hours and resets nothing else; quotas reset by date.
+A scheduled Worker (hourly cron) deletes demo sessions older than 24 hours.
+
+### Audio over WebSocket
+
+The browser captures the microphone with an AudioWorklet and sends 16 kHz 16-bit PCM over the WebSocket; the agent's audio comes back the same way. That is about 256 kbit/s each way per call, so five calls at once need roughly 1.3 Mbit/s of upload from your connection. Using one WebSocket (instead of WebRTC) means the tunnel only has to carry ordinary HTTPS traffic, and no TURN server is needed.
+
+### Tickets
+
+`POST /sessions` returns a ticket: the session ID, an expiry one minute out, and an HMAC signature. When the browser connects, the voice server checks the signature and expiry, then calls the Worker's `/claim` with the session ID. The Gate marks the session as started and returns its agent config, exactly once. A replayed or late ticket is refused. The voice server never trusts config sent by the browser.
+
+### When your machine is off
+
+The Worker checks `voice.offhook.welldun.ai/healthz` with a two-second timeout, and caches the answer for 30 seconds. If the voice server is down, `POST /sessions` returns "offline". The site then shows "The live demo is offline right now" with the sample transcripts and the waitlist, so the page still works. Sessions that never connect release their slot after a minute.
+
+To keep it up while you're away:
+- Run the voice server and `cloudflared` with Docker's `restart: unless-stopped`, so they come back after a reboot.
+- Stop the Mac from sleeping (`caffeinate -s`, or Energy settings) while the demo should be available.
 
 ### Endpoints (`demo.offhook.welldun.ai`)
 
 | Endpoint | Purpose |
 | --- | --- |
 | `GET /use-cases` | The launch use cases, with briefs and fields |
-| `POST /sessions` | `{use_case}` or `{custom: {…}}` plus `turnstile_token`. Returns `{session_id, ws_url, expires_at}` or a limit error |
-| `GET /sessions/{id}/ws` | The call's audio WebSocket. Accepted once per session, within a minute of creation |
+| `GET /status` | Whether the live demo is online right now |
+| `POST /sessions` | `{use_case}` or `{custom: {…}}` plus `turnstile_token`. Returns `{session_id, ticket, voice_url}`, a limit error, or "offline" |
 | `GET /sessions/{id}` | Status, transcript, outcome, summary, per-turn latency |
 | `POST /waitlist` | `{email, company?, use_case?, turnstile_token}` |
-| `POST /internal/results` | Container to Worker only, HMAC-signed |
+| `POST /internal/claim`, `POST /internal/results` | Voice server to Worker only, HMAC-signed |
 
-CORS allows only `https://offhook.welldun.ai` (and localhost in dev).
+CORS allows only `https://offhook.welldun.ai` (and localhost in dev). The voice server accepts WebSocket connections only with a valid ticket.
 
 ### Configuration
 
-- **Worker vars and secrets:** `ALLOWED_ORIGINS`, `DAILY_CALLS_PER_VISITOR=3`, `MAX_CALL_SECONDS=120`, `MAX_CONCURRENT=5`, `DAILY_MINUTES_CAP=300`, `TURNSTILE_SECRET_KEY`, `RESULTS_HMAC_SECRET`, `VISITOR_HASH_SALT`.
-- **Container secrets:** `DEEPGRAM_API_KEY`, `CARTESIA_API_KEY`, `GROQ_API_KEY`, `RESULTS_HMAC_SECRET`.
-- **Container size:** `standard-1` (1/2 vCPU, 4 GiB) or larger; the right size is measured in M4 with real calls.
+- **Worker vars and secrets:** `ALLOWED_ORIGINS`, `VOICE_URL`, `DAILY_CALLS_PER_VISITOR=3`, `MAX_CALL_SECONDS=120`, `MAX_CONCURRENT=5`, `DAILY_MINUTES_CAP=300`, `TURNSTILE_SECRET_KEY`, `DEMO_HMAC_SECRET`, `VISITOR_HASH_SALT`.
+- **Voice server (`.env` on your machine):** `DEEPGRAM_API_KEY`, `CARTESIA_API_KEY`, `GROQ_API_KEY`, `DEMO_HMAC_SECRET`, `WORKER_URL`.
+- **Tunnel:** a tunnel token from the Cloudflare dashboard, used by the `cloudflared` container.
 
-### Cold starts
+### Moving off your machine later
 
-A container that has been idle starts on the next call, which takes several seconds (booting plus loading Pipecat and the speech models). The UI shows "Connecting…" during this, the agent's first line is spoken only once the pipeline is ready, and lines stay warm for 10 minutes after the last call.
+The voice server is a plain Docker image with no local state, so it can move to Cloudflare Containers (Workers Paid plan) or any other host by changing `VOICE_URL`. Nothing else changes.
 
 ## Costs
 
-The demo spends your provider credit (speech-to-text, text-to-speech and the model) for every minute someone talks. At 3 calls of 2 minutes, one visitor can use at most 6 minutes a day, and the site-wide daily cap bounds the worst case. On Cloudflare, Containers need the Workers Paid plan and bill for the time containers run; Workers, Durable Objects, D1 and Turnstile have free allowances well above this volume.
+The demo spends your provider credit (speech-to-text, text-to-speech and the model) for every minute someone talks. At 3 calls of 2 minutes, one visitor can use at most 6 minutes a day, and the site-wide daily cap bounds the worst case. Hosting is free: the Worker, Durable Objects, D1, Turnstile and the Tunnel are on Cloudflare's free plan, whose allowances are well above this volume, and the voice server uses your own machine and connection.
 
 ## Milestones
 
 Each one ends with a review before the next starts.
 
 1. **Site repositioning (static).** New hero and positioning, the three use-case cards with sample transcripts and recorded fields, the developer section moved down, and a "Try it" button that is disabled until M3.
-2. **Demo backend.** The voice server (`app/demo/server.py`, WebSocket audio, cutoffs, results callback) and the Worker (Gate, Line, D1, Turnstile, limits, waitlist, expiry), with tests. Runs locally with `wrangler dev` and the container image.
+2. **Demo backend.** The voice server (`app/demo/server.py`: WebSocket audio, tickets, cutoffs, results callback, Docker image) and the Worker (Gate, D1, Turnstile, limits, health check, waitlist, expiry), with tests. Runs locally with `wrangler dev`.
 3. **Demo UI.** The brief, the live call with countdown and transcript, the results view, the custom-case form and every limit message, against the local backend.
-4. **Deploy.** The Worker, Durable Objects, D1 and container on your Cloudflare account under `demo.offhook.welldun.ai`, Turnstile set up, CORS locked to the site; size the container with real calls; then the "Try it" buttons go live.
+4. **Deploy.** The Worker, Gate and D1 on your Cloudflare account under `demo.offhook.welldun.ai`; the tunnel as `voice.offhook.welldun.ai`; the voice server and `cloudflared` running in Docker on your machine; Turnstile set up and CORS locked to the site. Then the "Try it" buttons go live.
 5. **Waitlist.** The signup form on the site, plus a simple way for you to export entries.
 
 ## Open questions
