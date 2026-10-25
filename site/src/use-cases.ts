@@ -30,7 +30,7 @@ export const USE_CASES: UseCase[] = [
   {
     slug: "recruiter-screening",
     chip: "Screen a candidate",
-    tint: "peach",
+    tint: "lavender",
     title: "Screen candidates",
     team: "Recruiting",
     summary: "Follow up every application within the hour, check the basics, and book interviews with the people who fit.",
@@ -104,7 +104,7 @@ export const USE_CASES: UseCase[] = [
   },
   {
     slug: "lead-qualification",
-    chip: "Follow up a lead",
+    chip: "Qualify a lead",
     tint: "mint",
     title: "Qualify leads",
     team: "Sales",

@@ -1,7 +1,7 @@
 ---
 import Base from "../layouts/Base.astro";
 import Code from "../components/Code.astro";
-import { USE_CASES, useCaseBySlug } from "../use-cases";
+import { useCaseBySlug } from "../use-cases";
 import CallComposer from "../components/CallComposer.astro";
 
 const GITHUB = "https://github.com/welldunai/offhook";
@@ -138,23 +138,6 @@ python run.py`;
       <figcaption class="scene-caption">An example call from the appointment use case.</figcaption>
     </figure>
   </section>
-
-  <section class="section" id="use-cases" aria-labelledby="uc-title"><div class="wd-container"><div class="section-inner">
-    <div class="section-head">
-      <p class="wd-eyebrow">Examples</p>
-      <h2 id="uc-title" class="display-md">Calls teams hand to Offhook</h2>
-    </div>
-    <div class="uc-grid">
-      {USE_CASES.map((u) => (
-        <a class:list={["wd-tile", `wd-tile--${u.tint}`]} href={`/use-cases/${u.slug}/`}>
-          <span class="wd-tile-tag">{u.team}</span>
-          <h3 class="wd-tile-title">{u.title}</h3>
-          <p class="wd-tile-desc">{u.summary}</p>
-          <span class="wd-tile-go">See a sample call <span class="wd-arrow" aria-hidden="true">→</span></span>
-        </a>
-      ))}
-    </div>
-  </div></div></section>
 
   <section class="section" id="for-teams" aria-labelledby="teams-title"><div class="wd-container"><div class="section-inner">
     <div class="section-head">

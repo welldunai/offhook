@@ -1,0 +1,27 @@
+---
+import Base from "../../layouts/Base.astro";
+import { USE_CASES } from "../../use-cases";
+---
+
+<Base title="Use cases · Offhook" description="Calls teams hand to Offhook: screening candidates, confirming appointments and qualifying leads, each with a sample call.">
+  <section class="wd-container uc-index">
+    <header class="page-head">
+      <p class="wd-eyebrow">Use cases</p>
+      <h1 class="display-lg">Calls teams hand to Offhook</h1>
+      <p class="body-lg uc-lede">
+        Each one comes with a sample call and what the agent writes down. Your own call works the same
+        way: describe it in plain English on the <a class="crumb-link" href="/">home page</a>.
+      </p>
+    </header>
+    <div class="uc-grid">
+      {USE_CASES.map((u) => (
+        <a class:list={["wd-tile", `wd-tile--${u.tint}`]} href={`/use-cases/${u.slug}/`}>
+          <span class="wd-tile-tag">{u.team}</span>
+          <h2 class="wd-tile-title">{u.title}</h2>
+          <p class="wd-tile-desc">{u.summary}</p>
+          <span class="wd-tile-go">See a sample call <span class="wd-arrow" aria-hidden="true">→</span></span>
+        </a>
+      ))}
+    </div>
+  </section>
+</Base>
