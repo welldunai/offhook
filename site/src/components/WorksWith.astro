@@ -1,0 +1,44 @@
+---
+// "Works with": the providers Offhook can use, grouped the way a call works.
+// Mirrors SUPPORTED_PROVIDERS in app/config.py. Logos are one-colour SVGs in
+// public/logos, used as CSS masks so they follow the theme (see SOURCES.md).
+const GROUPS = [
+  { step: "Picks up", title: "Phone line", note: "Real phone numbers, or a test call in the browser", providers: [["twilio", "Twilio"], ["plivo", "Plivo"], ["webrtc", "Browser (WebRTC)"]] },
+  { step: "Listens", title: "Speech to text", note: "Hears the person in real time", providers: [["deepgram", "Deepgram"]] },
+  { step: "Thinks", title: "Language model", note: "Holds the conversation and calls tools", providers: [["groq", "Groq"], ["openai", "OpenAI"], ["gemini", "Gemini"], ["openrouter", "OpenRouter"]] },
+  { step: "Speaks", title: "Voice", note: "Answers in a natural voice", providers: [["cartesia", "Cartesia"], ["openai", "OpenAI"]] },
+];
+---
+
+<section class="section works-with" id="works-with" aria-labelledby="works-title"><div class="wd-container"><div class="section-inner">
+  <div class="section-head">
+    <p class="wd-eyebrow">Works with</p>
+    <h2 id="works-title" class="display-md">The phone lines and AI you already use</h2>
+    <p class="body-lg works-lede">
+      Offhook joins them into one call. You bring your own accounts and keys, and each agent can use a
+      different provider.
+    </p>
+  </div>
+  <ol class="works-grid">
+    {GROUPS.map((g, i) => (
+      <li class="works-card">
+        <span class="works-step"><span class="works-step-no">{i + 1}</span>{g.step}</span>
+        <h3 class="works-title">{g.title}</h3>
+        <p class="works-note">{g.note}</p>
+        <ul class="works-providers">
+          {g.providers.map(([slug, name]) => (
+            <li class:list={["works-provider", `works-provider--${slug}`]}>
+              <span class="works-logo" style={`--logo: url(/logos/${slug}.svg)`} aria-hidden="true"></span>
+              {name}
+            </li>
+          ))}
+        </ul>
+      </li>
+    ))}
+  </ol>
+  <p class="works-foot">
+    <span class="works-logo works-logo--sm" style="--logo: url(/logos/pipecat.svg)" aria-hidden="true"></span>
+    Built on <a href="https://github.com/pipecat-ai/pipecat">Pipecat</a>, the open-source voice framework.
+    <a href="/docs/connections/">Connect a provider</a>. Logos are trademarks of their owners.
+  </p>
+</div></div></section>

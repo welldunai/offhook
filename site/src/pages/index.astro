@@ -3,6 +3,7 @@ import Base from "../layouts/Base.astro";
 import Code from "../components/Code.astro";
 import { useCaseBySlug } from "../use-cases";
 import CallComposer from "../components/CallComposer.astro";
+import WorksWith from "../components/WorksWith.astro";
 
 const GITHUB = "https://github.com/welldunai/offhook";
 const scene = useCaseBySlug["appointment-confirmation"];
@@ -105,6 +106,9 @@ python run.py`;
 >
   <section class="hero hero--human wd-container">
     <div class="hero-copy">
+      <a class="live-pill" href="#purpose" data-live-pill hidden>
+        <span class="live-pill-dot" aria-hidden="true"></span>Live now: talk to an agent in your browser, free
+      </a>
       <h1 class="display-xl">Describe the call.<br /><span class="hero-accent">Offhook makes&nbsp;it.</span></h1>
       <p class="lede body-lg">
         Tell Offhook who to call and what you need to find out. It has a natural conversation,
@@ -138,6 +142,8 @@ python run.py`;
       <figcaption class="scene-caption">An example call from the appointment use case.</figcaption>
     </figure>
   </section>
+
+  <WorksWith />
 
   <section class="section" id="for-teams" aria-labelledby="teams-title"><div class="wd-container"><div class="section-inner">
     <div class="section-head">
@@ -220,3 +226,14 @@ python run.py`;
     </div>
   </div></div></section>
 </Base>
+
+<script>
+  import { demoEnabled, demoStatus } from "../demo/client";
+
+  // Only say the demo is live when a call could actually start.
+  const pill = document.querySelector<HTMLElement>("[data-live-pill]");
+  if (pill && demoEnabled) {
+    void demoStatus().then((s) => (pill.hidden = !(s && s.online && !s.paused)));
+    pill.addEventListener("click", () => setTimeout(() => document.querySelector<HTMLElement>("#purpose")?.focus(), 0));
+  }
+</script>
