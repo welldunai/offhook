@@ -1,5 +1,4 @@
-# Shared image for the API and worker services (Railway: two services, same
-# image, different start commands — see railway.api.json / railway.worker.json).
+# Shared image for the API and worker: same image, different start commands.
 FROM python:3.13-slim
 
 # libgl1/libglib2.0-0: opencv-python (pulled in transitively via aiortc, used
@@ -25,6 +24,5 @@ ENV PYTHONUNBUFFERED=1
 
 EXPOSE 8000
 
-# Default (API service). The worker service overrides this via
-# railway.worker.json's deploy.startCommand.
+# Default: the API. The worker overrides the command with `python -m app.worker`.
 CMD ["python", "run.py"]

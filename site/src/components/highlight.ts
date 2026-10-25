@@ -33,7 +33,7 @@ function bash(src: string): string {
       if (line.trim().startsWith("#")) return `<span class="tk-c">${esc(line)}</span>`;
       let s = esc(line);
       s = s.replace(/('[^']*'|&quot;[^&]*&quot;|"[^"]*")/g, '<span class="tk-s">$1</span>');
-      s = s.replace(/^(\s*)(curl|export|python|npm|pnpm|cd|pip|uv|alembic|docker|createdb|git|ngrok|railway)\b/, '$1<span class="tk-k">$2</span>');
+      s = s.replace(/^(\s*)(curl|export|python|npm|pnpm|cd|pip|uv|alembic|docker|createdb|git|ngrok)\b/, '$1<span class="tk-k">$2</span>');
       return s;
     })
     .join("\n");

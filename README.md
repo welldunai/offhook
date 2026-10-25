@@ -97,7 +97,7 @@ Everything in `context` is placed in the agent's prompt, so it can use those fac
 | **Security** | argon2id API keys, AES-GCM envelope encryption (env or AWS KMS master key), signed webhooks, SSRF guard, log redaction, optional Postgres RLS |
 | **Apps** | `dashboard/` console (Clerk sign-in), `docs/` API reference site |
 
-The full API, configuration and internals are in [REFERENCE.md](REFERENCE.md). [ARCHITECTURE.md](ARCHITECTURE.md) explains the design, and [RAILWAY.md](RAILWAY.md) covers deploying to Railway.
+The full API, configuration and internals are in [REFERENCE.md](REFERENCE.md). [ARCHITECTURE.md](ARCHITECTURE.md) explains the design, and the [deployment guide](https://offhook.welldun.ai/docs/deploying/) covers Docker Compose and systemd.
 
 ## Tests
 
