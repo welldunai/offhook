@@ -23,7 +23,7 @@ Each use case is a fixed agent configuration plus a short brief for the visitor.
 | Use case | The agent | The visitor plays | The agent records |
 | --- | --- | --- | --- |
 | Recruiter screening | Sam, a recruiter at Northwind, following up an application for a backend engineer role | The candidate | `interested`, `notice_period`, `salary_expectation`, `interview_slot` |
-| Appointment confirmation | Alex at Acme Clinic, confirming Tuesday 3 PM with Dr. Rao | The patient | `confirmed`, `new_time`, `notes` |
+| Appointment confirmation | Alex at Acme Clinic, confirming Tuesday 3 PM with Dr. Rao | The patient | `kept_original_time`, `new_time`, `notes` |
 | Lead qualification | Riya at Brightdesk, calling back someone who requested a demo | The lead | `need`, `team_size`, `timeline`, `demo_booked` |
 
 The company names are fictional and shown as such.

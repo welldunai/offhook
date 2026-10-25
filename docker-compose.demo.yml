@@ -1,0 +1,43 @@
+# The website's live demo, on your own machine (DEMO.md).
+#
+#   docker compose -f docker-compose.demo.yml up -d --build          # voice server only (local dev)
+#   docker compose -f docker-compose.demo.yml --profile tunnel up -d  # plus the Cloudflare Tunnel
+#
+# Settings come from .env (see .env.example, "Live demo voice server"). Both
+# services restart on their own after a crash or a reboot.
+
+services:
+  voice:
+    build: .
+    image: offhook-demo-voice
+    command: ["python", "-m", "app.demo"]
+    env_file: .env
+    environment:
+      DEMO_HOST: 0.0.0.0
+      DEMO_PORT: "8765"
+      # Where the demo Worker is, as seen from inside the container. Locally that's
+      # `wrangler dev` on the host; in production, https://demo.offhook.welldun.ai.
+      WORKER_URL: ${DEMO_WORKER_URL:-http://host.docker.internal:8790}
+    ports:
+      # Loopback only: `wrangler dev` reaches it here. The internet only ever
+      # reaches it through the tunnel.
+      - "127.0.0.1:8765:8765"
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request as u; u.urlopen('http://127.0.0.1:8765/healthz', timeout=3)"]
+      interval: 15s
+      timeout: 5s
+      retries: 3
+      start_period: 20s
+
+  cloudflared:
+    image: cloudflare/cloudflared:2026.9.3
+    profiles: ["tunnel"]
+    command: ["tunnel", "--no-autoupdate", "run"]
+    environment:
+      # Only the tunnel token, not the provider keys. In the Cloudflare dashboard,
+      # the tunnel's public hostname voice.offhook.welldun.ai points at http://voice:8765.
+      TUNNEL_TOKEN: ${CLOUDFLARE_TUNNEL_TOKEN:-}
+    depends_on:
+      - voice
+    restart: unless-stopped

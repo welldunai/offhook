@@ -22,6 +22,7 @@ from pipecat.frames.frames import (
     BotStartedSpeakingFrame,
     BotStoppedSpeakingFrame,
     EndFrame,
+    ErrorFrame,
     FunctionCallInProgressFrame,
     LLMMessagesAppendFrame,
     OutputTransportMessageFrame,
@@ -45,6 +46,9 @@ WRAP_UP_NOTE = (
 )
 TIME_UP_GOODBYE = "I'm sorry, we're out of time for this call. Thanks so much for talking with me. Goodbye!"
 SILENCE_GOODBYE = "It sounds like you've stepped away, so I'll let you go. Goodbye!"
+PROVIDER_ERROR = "The call couldn't connect to its speech services. Try again in a minute."
+#: Errors tolerated once the agent has spoken; one is enough before that.
+MAX_ERRORS = 3
 #: Seconds after a hang-up starts before the call is cut regardless.
 HARD_STOP_SECONDS = 10
 
@@ -152,6 +156,8 @@ class DemoCall:
         self._bot_speaking = False
         self._user_stopped_at: float | None = None
         self._wrapped = False
+        self._errors = 0
+        self._agent_spoke = False
         self._task: Any = None
         self._transport: Any = None
 
@@ -280,9 +286,29 @@ class DemoCall:
                 self._user_stopped_at = now
         else:
             self._bot_speaking = speaking
+            self._agent_spoke = self._agent_spoke or speaking
             if speaking and self._user_stopped_at is not None:
                 self.latency_ms.append(round((now - self._user_stopped_at) * 1000))
                 self._user_stopped_at = None
+
+    async def on_error(self, error: str) -> None:
+        """A pipeline service reported an error (e.g. Deepgram or Cartesia unreachable).
+
+        Before the agent has said anything, the visitor would only hear silence,
+        so one error fails the call; after that, a few are tolerated.
+
+        Args:
+            error: The error text, for the log only.
+        """
+        self._errors += 1
+        logger.warning(f"[demo] call {self.session_id} error {self._errors}: {error}")
+        if self.end_reason is not None or (self._agent_spoke and self._errors < MAX_ERRORS):
+            return
+        self.failed = True
+        self.end_reason = "error"
+        await self.send({"type": "error", "error": "provider_error", "message": PROVIDER_ERROR})
+        if self._task is not None:
+            await self._task.cancel()
 
     # --- results --------------------------------------------------------------
 
@@ -357,6 +383,8 @@ class _Watcher(BaseObserver):
                 self._call.on_speaking("bot", True)
             elif isinstance(frame, BotStoppedSpeakingFrame):
                 self._call.on_speaking("bot", False)
+            elif isinstance(frame, ErrorFrame):
+                await self._call.on_error(str(frame.error))
             elif (
                 isinstance(frame, FunctionCallInProgressFrame)
                 and frame.function_name == "record_result"

@@ -78,7 +78,7 @@ export const USE_CASES: UseCase[] = [
     brief: "You have an appointment at Acme Clinic with Dr. Rao on Tuesday at 3 PM. Something has come up, so you'd like to move it. Say what you'd say on a real call.",
     goal: "Confirm tomorrow's appointment, or find a new time from the open slots if the patient can't make it.",
     instructions:
-      "You are confirming a patient's appointment. Confirm the date, time and doctor from the call context. If the patient can't make it, offer the open slots in the call context, one or two at a time, and confirm the one they pick. Record whether they confirmed, any new time, and anything they ask you to pass on. Don't give medical advice.",
+      "You are confirming a patient's appointment. Confirm the date, time and doctor from the call context. If the patient can't make it, offer the open slots in the call context, one or two at a time, and confirm the one they pick. Record kept_original_time as yes or no, new_time if they moved it, and notes for anything they ask you to pass on. Don't give medical advice.",
     firstMessage: "Hi, this is Alex from Acme Clinic. I'm calling about your appointment with Dr. Rao. Is now a good time?",
     context: {
       patient_name: "Priya",
@@ -86,7 +86,7 @@ export const USE_CASES: UseCase[] = [
       open_slots: "Wednesday 10 AM, Wednesday 2:30 PM, Thursday 9 AM",
     },
     fields: [
-      { key: "confirmed", label: "Kept the original time", example: "false" },
+      { key: "kept_original_time", label: "Kept the original time", example: "false" },
       { key: "new_time", label: "New time", example: "Wednesday 2:30 PM" },
       { key: "notes", label: "Notes for the clinic", example: "Asked for a reminder text" },
     ],
@@ -100,7 +100,7 @@ export const USE_CASES: UseCase[] = [
       { who: "agent", text: "Done. You're now booked for Wednesday at two thirty with Dr. Rao, and I've noted that you'd like a reminder text. Anything else?" },
       { who: "person", text: "No, that's all. Thanks!" },
     ],
-    outcome: { confirmed: false, new_time: "Wednesday 2:30 PM", notes: "Asked for a reminder text" },
+    outcome: { kept_original_time: false, new_time: "Wednesday 2:30 PM", notes: "Asked for a reminder text" },
   },
   {
     slug: "lead-qualification",

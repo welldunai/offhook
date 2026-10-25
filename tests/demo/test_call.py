@@ -41,6 +41,9 @@ class FakeTask:
     def has_finished(self) -> bool:
         return True
 
+    async def cancel(self) -> None:
+        self.cancelled = True
+
 
 def started_call(clock: Clock) -> tuple[DemoCall, FakeTask, list[dict]]:
     """A call that is 'connected' at clock time 100, with a fake task and event sink."""
@@ -189,3 +192,23 @@ async def test_watcher_streams_turns_and_results_once_and_tracks_speaking():
         {"type": "result", "key": "new_day", "value": "Thursday"},
     ]
     assert call.latency_ms == [500]
+
+
+async def test_an_error_before_the_agent_speaks_fails_the_call():
+    clock = Clock()
+    call, task, events = started_call(clock)
+    await call.on_error("Unable to connect to Deepgram")
+    assert call.failed and call.end_reason == "error" and task.cancelled
+    assert events[-1]["error"] == "provider_error"
+    assert call.results()["status"] == "failed"
+
+
+async def test_a_few_errors_are_tolerated_once_the_agent_has_spoken():
+    clock = Clock()
+    call, task, events = started_call(clock)
+    call.on_speaking("bot", True)
+    await call.on_error("tts hiccup")
+    await call.on_error("tts hiccup")
+    assert not call.failed and events == []
+    await call.on_error("tts hiccup")
+    assert call.failed and task.cancelled
