@@ -18,7 +18,6 @@ const NAV = [
   { label: "Docs", href: "/docs/" },
   { label: "Quickstart", href: "/docs/quickstart/" },
   { label: "API", href: "/docs/calls/" },
-  { label: "Blog", href: "https://blog.welldun.ai" },
 ];
 ---
 
@@ -55,7 +54,7 @@ const NAV = [
       <div class="wd-container wd-header-inner">
         <div class="oh-brand">
           <OffhookLogo />
-          <a class="oh-by" href="https://blog.welldun.ai">by welldun<span class="oh-by-dot">.</span></a>
+          <span class="oh-by">by welldun<span class="oh-by-dot">.</span></span>
         </div>
         <nav class="wd-nav" aria-label="Main">
           {NAV.map((l) => <a href={l.href} aria-current={l.href !== "/docs/" && Astro.url.pathname === l.href ? "page" : l.href === "/docs/" && Astro.url.pathname.startsWith("/docs/") && !NAV.some((n) => n.href !== "/docs/" && Astro.url.pathname === n.href) ? "page" : undefined}>{l.label}</a>)}
@@ -74,12 +73,11 @@ const NAV = [
       <div class="wd-container wd-footer-inner">
         <div class="oh-foot">
           <OffhookLogo />
-          <span>Open source under Apache-2.0. Powered by <a class="oh-powered" href="https://blog.welldun.ai">welldun<span class="oh-by-dot">.</span></a></span>
+          <span>Open source under Apache-2.0. Powered by <span class="oh-powered">welldun<span class="oh-by-dot">.</span></span></span>
         </div>
         <nav class="wd-footer-links" aria-label="Footer">
           <a href={GITHUB}>GitHub</a>
           <a href="/docs/">Docs</a>
-          <a href="https://blog.welldun.ai">Blog</a>
           <a href="https://x.com/welldunai">X</a>
         </nav>
         <ThemeSwitch />
