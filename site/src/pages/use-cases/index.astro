@@ -1,27 +1,62 @@
 ---
 import Base from "../../layouts/Base.astro";
+import CallComposer from "../../components/CallComposer.astro";
 import { USE_CASES } from "../../use-cases";
+
+// Starting points for a custom call. Deliberately not the three use cases above.
+const IDEAS = [
+  { label: "Missed deliveries", text: "Call customers whose delivery failed yesterday. Find a new day that works and note any instructions for the driver." },
+  { label: "Overdue invoices", text: "Call clients with an invoice more than 30 days overdue. Politely remind them, ask when they expect to pay, and note any dispute." },
+  { label: "Event RSVPs", text: "Call people who registered for our Saturday workshop but haven't confirmed. Check if they're still coming and whether they need parking." },
+  { label: "Feedback after a visit", text: "Call customers who visited the store this week. Ask how it went, what we could do better, and if they'd recommend us." },
+];
 ---
 
-<Base title="Use cases · Offhook" description="Calls teams hand to Offhook: screening candidates, confirming appointments and qualifying leads, each with a sample call.">
-  <section class="wd-container uc-index">
+<Base title="Use cases · Offhook" description="Calls teams hand to Offhook: screening candidates, confirming appointments and qualifying leads, each written out in full with a sample call. Or describe your own.">
+  <div class="wd-container uc-index">
     <header class="page-head">
       <p class="wd-eyebrow">Use cases</p>
       <h1 class="display-lg">Calls teams hand to Offhook</h1>
       <p class="body-lg uc-lede">
-        Each one comes with a sample call and what the agent writes down. Your own call works the same
-        way: describe it in plain English on the <a class="crumb-link" href="/">home page</a>.
+        Each one is written out in full: who calls, how the call opens, and what gets written down.
+        Have a different call in mind? <a class="crumb-link" href="#your-own">Describe your own</a>.
       </p>
     </header>
-    <div class="uc-grid">
+
+    <div class="uc-rows">
       {USE_CASES.map((u) => (
-        <a class:list={["wd-tile", `wd-tile--${u.tint}`]} href={`/use-cases/${u.slug}/`}>
-          <span class="wd-tile-tag">{u.team}</span>
-          <h2 class="wd-tile-title">{u.title}</h2>
-          <p class="wd-tile-desc">{u.summary}</p>
-          <span class="wd-tile-go">See a sample call <span class="wd-arrow" aria-hidden="true">→</span></span>
-        </a>
+        <article class="uc-row" aria-labelledby={`uc-${u.slug}`}>
+          <div class:list={["wd-tile", `wd-tile--${u.tint}`, "uc-row-tile"]}>
+            <span class="wd-tile-tag">{u.team}</span>
+            <h2 class="wd-tile-title" id={`uc-${u.slug}`}>{u.title}</h2>
+            <p class="wd-tile-desc">{u.summary}</p>
+            <a class="wd-btn wd-btn--secondary uc-row-go" href={`/use-cases/${u.slug}/`}>See a sample call <span class="wd-arrow" aria-hidden="true">→</span></a>
+          </div>
+          <dl class="uc-row-plan">
+            <div>
+              <dt class="sr-only">The agent</dt>
+              <dd class="uc-row-agent">
+                <span class:list={["wd-avatar", `wd-avatar--${u.tint}`]} aria-hidden="true">{u.agent.name[0]}</span>
+                <span><strong>{u.agent.name}</strong>, {u.agent.role} at {u.agent.company}</span>
+              </dd>
+            </div>
+            <div><dt>Opens with</dt><dd class="uc-row-quote">“{u.firstMessage}”</dd></div>
+            <div><dt>Goal</dt><dd>{u.goal}</dd></div>
+            <div><dt>Writes down</dt><dd><ul class="plan-fields">{u.fields.map((f) => <li>{f.label}</li>)}</ul></dd></div>
+          </dl>
+        </article>
       ))}
     </div>
-  </section>
+
+    <section class="uc-own" id="your-own" aria-labelledby="your-own-title">
+      <div class="uc-own-copy">
+        <h2 id="your-own-title" class="display-md">Describe your own call</h2>
+        <p class="body-lg uc-lede">
+          Say who to call and what you need to find out, the way you'd brief a colleague. Offhook writes the
+          plan: who the agent is, how it opens, and what it writes down.
+        </p>
+      </div>
+      <CallComposer examples={false} ideas={IDEAS} />
+    </section>
+  </div>
 </Base>

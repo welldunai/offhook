@@ -2,7 +2,16 @@
 // "Describe the call" box. The three examples fill the box and show their ready-made
 // call plan. Custom purposes need the demo backend (DEMO.md); until it ships, submitting
 // one explains that, and keeps what the visitor typed.
+// Props: `examples` shows the three use-case chips and their plans (the homepage);
+// `ideas` are other purposes that only fill the box, for pages that list the use cases
+// already and want starting points that aren't repeats.
 import { USE_CASES } from "../use-cases";
+
+interface Props {
+  examples?: boolean;
+  ideas?: { label: string; text: string }[];
+}
+const { examples = true, ideas = [] } = Astro.props;
 ---
 
 <div class="composer" data-composer>
@@ -21,20 +30,31 @@ import { USE_CASES } from "../use-cases";
     </div>
   </form>
 
-  <div class="composer-examples">
-    <span class="composer-examples-label">Try one:</span>
-    {USE_CASES.map((u) => (
-      <button type="button" class:list={["wd-chip", `wd-chip--${u.tint}`]} data-example={u.slug}>
-        <span class:list={["wd-avatar", `wd-avatar--${u.tint}`]} aria-hidden="true">{u.agent.name[0]}</span>{u.chip}
-      </button>
-    ))}
-  </div>
+  {examples && (
+    <div class="composer-examples">
+      <span class="composer-examples-label">Try one:</span>
+      {USE_CASES.map((u) => (
+        <button type="button" class:list={["wd-chip", `wd-chip--${u.tint}`]} data-example={u.slug}>
+          <span class:list={["wd-avatar", `wd-avatar--${u.tint}`]} aria-hidden="true">{u.agent.name[0]}</span>{u.chip}
+        </button>
+      ))}
+    </div>
+  )}
+
+  {ideas.length > 0 && (
+    <div class="composer-examples">
+      <span class="composer-examples-label">Start from an idea:</span>
+      {ideas.map((i) => (
+        <button type="button" class="wd-chip" data-idea={i.text}>{i.label}</button>
+      ))}
+    </div>
+  )}
 
   <p class="composer-notice" data-notice hidden>
-    Planning your own call opens with the live demo, soon. Meanwhile, try one of the examples.
+    Planning your own call opens with the live demo, soon. Meanwhile, {examples ? "try one of the examples" : "see how the use cases above go in their sample calls"}.
   </p>
 
-  {USE_CASES.map((u) => (
+  {examples && USE_CASES.map((u) => (
     <section class="plan" data-plan={u.slug} data-purpose={u.purpose} hidden aria-label={`Call plan: ${u.title}`}>
       <div class="plan-head">
         <span class="plan-title">Here’s the plan</span>
@@ -64,6 +84,7 @@ import { USE_CASES } from "../use-cases";
     const notice = root.querySelector<HTMLElement>("[data-notice]")!;
     const plans = [...root.querySelectorAll<HTMLElement>("[data-plan]")];
     const chips = [...root.querySelectorAll<HTMLButtonElement>("[data-example]")];
+    const ideas = [...root.querySelectorAll<HTMLButtonElement>("[data-idea]")];
 
     const show = (slug: string | null) => {
       for (const p of plans) p.hidden = p.dataset.plan !== slug;
@@ -83,7 +104,18 @@ import { USE_CASES } from "../use-cases";
       });
     }
 
+    for (const idea of ideas) {
+      idea.addEventListener("click", () => {
+        box.value = idea.dataset.idea ?? "";
+        updateCount();
+        show(null);
+        for (const i of ideas) i.setAttribute("aria-pressed", String(i === idea));
+        box.focus();
+      });
+    }
+
     box.addEventListener("input", () => {
+      for (const i of ideas) i.setAttribute("aria-pressed", "false");
       updateCount();
       // Editing an example's text turns it into a custom purpose: hide the ready-made plan.
       if (!matching()) show(null);
