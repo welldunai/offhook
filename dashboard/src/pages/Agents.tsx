@@ -55,11 +55,11 @@ export default function Agents() {
 }
 
 const MODEL_DEFAULTS: Record<string, string> = {
-  groq: "llama-3.1-8b-instant", gemini: "gemini-2.5-flash",
+  groq: "openai/gpt-oss-20b", gemini: "gemini-2.5-flash",
   openrouter: "google/gemini-2.5-flash", openai: "gpt-4o-mini",
 };
 const MODEL_SUGGESTIONS: Record<string, string[]> = {
-  groq: ["llama-3.1-8b-instant", "llama-3.3-70b-versatile"],
+  groq: ["openai/gpt-oss-20b", "openai/gpt-oss-120b"],
   gemini: ["gemini-2.5-flash", "gemini-2.5-flash-lite"],
   openrouter: ["google/gemini-2.5-flash", "openai/gpt-4o-mini", "anthropic/claude-3.5-haiku"],
   openai: ["gpt-4o-mini", "gpt-4o"],
