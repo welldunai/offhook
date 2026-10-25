@@ -1,0 +1,19 @@
+---
+// The Offhook logo: the voice-bubble mark and the wordmark. The bubble fill follows the
+// brand colour (blue, lighter in dark mode); the bars stay white.
+interface Props {
+  href?: string;
+  size?: "md" | "lg";
+}
+const { href = "/", size = "md" } = Astro.props;
+---
+
+<a class:list={["oh-logo", size === "lg" && "oh-logo--lg"]} href={href} aria-label="Offhook, home">
+  <svg class="oh-mark" viewBox="0 0 64 64" aria-hidden="true">
+    <path class="oh-mark-bubble" d="M14 8h36a10 10 0 0 1 10 10v22a10 10 0 0 1-10 10H30l-10 9v-9h-6A10 10 0 0 1 4 40V18A10 10 0 0 1 14 8z" />
+    <rect x="21" y="22" width="5" height="14" rx="2.5" fill="#fff" />
+    <rect x="29.5" y="16" width="5" height="26" rx="2.5" fill="#fff" />
+    <rect x="38" y="20" width="5" height="18" rx="2.5" fill="#fff" />
+  </svg>
+  <span class="oh-word">offhook</span>
+</a>

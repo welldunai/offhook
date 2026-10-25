@@ -1,6 +1,7 @@
 ---
 import ThemeHead from "../components/ThemeHead.astro";
 import ThemeSwitch from "../components/ThemeSwitch.astro";
+import OffhookLogo from "../components/OffhookLogo.astro";
 import "../styles/site.css";
 
 interface Props {
@@ -10,7 +11,7 @@ interface Props {
 const { title, description } = Astro.props;
 const canonical = new URL(Astro.url.pathname, Astro.site);
 const ogImage = new URL("/og.png", Astro.site);
-const ogAlt = "Offhook: describe the call and it makes it. An example call where Alex from Acme Clinic moves an appointment, with what it wrote down.";
+const ogAlt = "Offhook, by welldun: describe the call and it makes it. An example call where Alex from Acme Clinic moves an appointment.";
 const GITHUB = "https://github.com/welldunai/offhook";
 const NAV = [
   { label: "Use cases", href: "/#use-cases" },
@@ -36,6 +37,7 @@ const NAV = [
     <meta property="og:type" content="website" />
     <meta property="og:url" content={canonical} />
     <meta property="og:site_name" content="Offhook" />
+    <meta name="application-name" content="Offhook" />
     <meta property="og:image" content={ogImage} />
     <meta property="og:image:width" content="1200" />
     <meta property="og:image:height" content="630" />
@@ -51,11 +53,10 @@ const NAV = [
     <a class="skip" href="#content">Skip to content</a>
     <header class="wd-header">
       <div class="wd-container wd-header-inner">
-        <a class="wd-wordmark" href="/" aria-label="welldun offhook, home">
-          <span>welldun<span class="wd-wordmark-dot">.</span></span>
-          <span class="wd-wordmark-slash" aria-hidden="true">/</span>
-          <span class="wd-wordmark-product">offhook</span>
-        </a>
+        <div class="oh-brand">
+          <OffhookLogo />
+          <a class="oh-by" href="https://blog.welldun.ai">by welldun<span class="oh-by-dot">.</span></a>
+        </div>
         <nav class="wd-nav" aria-label="Main">
           {NAV.map((l) => <a href={l.href} aria-current={l.href !== "/docs/" && Astro.url.pathname === l.href ? "page" : l.href === "/docs/" && Astro.url.pathname.startsWith("/docs/") && !NAV.some((n) => n.href !== "/docs/" && Astro.url.pathname === n.href) ? "page" : undefined}>{l.label}</a>)}
         </nav>
@@ -71,9 +72,9 @@ const NAV = [
 
     <footer class="wd-footer">
       <div class="wd-container wd-footer-inner">
-        <div class="wd-row">
-          <a class="wd-wordmark" href="https://blog.welldun.ai" aria-label="welldun"><span>welldun<span class="wd-wordmark-dot">.</span></span></a>
-          <span>Offhook is open source under Apache-2.0.</span>
+        <div class="oh-foot">
+          <OffhookLogo />
+          <span>Open source under Apache-2.0. Powered by <a class="oh-powered" href="https://blog.welldun.ai">welldun<span class="oh-by-dot">.</span></a></span>
         </div>
         <nav class="wd-footer-links" aria-label="Footer">
           <a href={GITHUB}>GitHub</a>
