@@ -1,0 +1,14 @@
+/* Copied from site/src/styles/site.css (Offhook brand accent over the welldun tokens). Keep in sync. */
+/* ---------- Offhook brand ----------
+   Offhook is its own product, made by welldun: same design system, its own mark and its own
+   accent. Blue takes the role of the welldun orange on this site; welldun's orange stays only
+   in the "by welldun." credit. */
+:root {
+  --signal: #2b5bd7; --signal-strong: #2249b8; --signal-soft: #e4edff; --on-signal: #ffffff;
+  --code-signal: #8fb0ff; --brand-mark: #2b5bd7; --welldun: #ec5a2b;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) { --signal: #7d9dff; --signal-strong: #a3bcff; --signal-soft: #1b2646; --on-signal: #191714; --welldun: #ff7a50; }
+}
+:root[data-theme="dark"] { --signal: #7d9dff; --signal-strong: #a3bcff; --signal-soft: #1b2646; --on-signal: #191714; --welldun: #ff7a50; }
+@media print { :root:not([data-print-never]), :root[data-theme] { --signal: #2b5bd7; --signal-strong: #2249b8; --signal-soft: #e4edff; --on-signal: #ffffff; } }

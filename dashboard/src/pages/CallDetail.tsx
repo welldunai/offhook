@@ -31,27 +31,27 @@ export default function CallDetail() {
           <div className="card card-pad">
             <div className="between" style={{ marginBottom: 16 }}>
               <Badge status={call.data.status} />
-              <span className="dim mono" style={{ fontSize: 11 }}>{call.data.direction}</span>
+              <span className="dim" style={{ fontSize: 13 }}>{call.data.direction === "inbound" ? "Inbound" : "Outbound"}</span>
             </div>
             <dl className="kv">
-              <dt>call id</dt><dd className="mono" style={{ fontSize: 11.5, wordBreak: "break-all" }}>{call.data.id}</dd>
-              {call.data.to_number && (<><dt>to</dt><dd className="mono">{call.data.to_number}</dd></>)}
-              {call.data.from_number && (<><dt>from</dt><dd className="mono">{call.data.from_number}</dd></>)}
-              {call.data.provider_call_id && (<><dt>carrier id</dt><dd className="mono" style={{ fontSize: 11.5, wordBreak: "break-all" }}>{call.data.provider_call_id}</dd></>)}
-              {call.data.error_code && (<><dt>error</dt><dd><span className="badge failed">{call.data.error_code}</span></dd></>)}
+              <dt>Call ID</dt><dd className="mono" style={{ fontSize: 11.5, wordBreak: "break-all" }}>{call.data.id}</dd>
+              {call.data.to_number && (<><dt>To</dt><dd className="mono">{call.data.to_number}</dd></>)}
+              {call.data.from_number && (<><dt>From</dt><dd className="mono">{call.data.from_number}</dd></>)}
+              {call.data.provider_call_id && (<><dt>Carrier ID</dt><dd className="mono" style={{ fontSize: 11.5, wordBreak: "break-all" }}>{call.data.provider_call_id}</dd></>)}
+              {call.data.error_code && (<><dt>Error</dt><dd><span className="badge failed">{call.data.error_code}</span></dd></>)}
               {call.data.tags && Object.keys(call.data.tags).length > 0 && (
-                <><dt>tags</dt><dd>
+                <><dt>Tags</dt><dd>
                   <span className="wrap" style={{ gap: 4 }}>
                     {Object.entries(call.data.tags).map(([k, v]) => (
-                      <span key={k} className="badge neutral mono" style={{ fontSize: 11 }}>{k}:{v}</span>
+                      <span key={k} className="badge neutral">{k}: {v}</span>
                     ))}
                   </span>
                 </dd></>
               )}
-              <dt>duration</dt><dd className="num">{fmtDur(call.data.duration_seconds)}</dd>
-              <dt>created</dt><dd>{fmtDate(call.data.created_at)}</dd>
-              <dt>started</dt><dd>{fmtDate(call.data.started_at)}</dd>
-              <dt>ended</dt><dd>{fmtDate(call.data.ended_at)}</dd>
+              <dt>Duration</dt><dd className="num">{fmtDur(call.data.duration_seconds)}</dd>
+              <dt>Created</dt><dd>{fmtDate(call.data.created_at)}</dd>
+              <dt>Started</dt><dd>{fmtDate(call.data.started_at)}</dd>
+              <dt>Ended</dt><dd>{fmtDate(call.data.ended_at)}</dd>
             </dl>
             {call.data.has_recording && <Recording id={id} />}
             <button className="btn btn-ghost btn-sm" style={{ marginTop: 16, width: "100%", justifyContent: "center" }}
@@ -67,7 +67,7 @@ export default function CallDetail() {
                 <button className={tab === "events" ? "on" : ""} onClick={() => setTab("events")}>Event log</button>
                 <button className={tab === "transcript" ? "on" : ""} onClick={() => setTab("transcript")}>Transcript</button>
               </div>
-              <span className="dim mono" style={{ fontSize: 11 }}>
+              <span className="dim" style={{ fontSize: 13 }}>
                 {tab === "events" ? `${events.data?.length ?? 0} events` : `${transcript.data?.transcript.length ?? 0} turns`}
               </span>
             </div>
@@ -98,16 +98,19 @@ export default function CallDetail() {
                 ) : (
                   <>
                     {transcript.data.summary && (
-                      <div style={{ background: "var(--clay-soft)", borderRadius: 8, padding: "10px 14px", marginBottom: 14, fontSize: 13 }}>
-                        <span className="mono dim" style={{ fontSize: 10.5 }}>SUMMARY · </span>{transcript.data.summary}
+                      <div className="call-summary">
+                        <span className="call-summary-label">Summary</span>
+                        <p>{transcript.data.summary}</p>
                       </div>
                     )}
-                    {transcript.data.transcript.map((t, i) => (
-                      <div className="turn" key={i}>
-                        <div className={`turn-role ${t.role}`}>{t.role === "assistant" ? "Agent" : "Caller"}</div>
-                        <div className="turn-text">{t.text}</div>
-                      </div>
-                    ))}
+                    <ul className="bubbles" aria-label="Transcript">
+                      {mergeTurns(transcript.data.transcript).map((t, i) => (
+                        <li key={i} className={`bubble${t.role === "assistant" ? "" : " bubble--caller"}`}>
+                          <span className="sr-only">{t.role === "assistant" ? "Agent: " : "Caller: "}</span>
+                          {t.text}
+                        </li>
+                      ))}
+                    </ul>
                   </>
                 )
               )}
@@ -117,6 +120,22 @@ export default function CallDetail() {
       )}
     </Page>
   );
+}
+
+/**
+ * Joins back-to-back lines from the same speaker: speech-to-text splits long
+ * turns, which would otherwise show as a stack of fragments.
+ * Args: turns — the transcript as stored.
+ * Returns: one entry per spoken turn.
+ */
+function mergeTurns<T extends { role: string; text: string }>(turns: T[]): T[] {
+  const out: T[] = [];
+  for (const t of turns) {
+    const last = out[out.length - 1];
+    if (last && last.role === t.role) out[out.length - 1] = { ...last, text: `${last.text} ${t.text}` };
+    else out.push({ ...t });
+  }
+  return out;
 }
 
 function Recording({ id }: { id: string }) {
@@ -129,7 +148,7 @@ function Recording({ id }: { id: string }) {
   }, [id]);
   return (
     <div style={{ marginTop: 16 }}>
-      <div className="mono dim" style={{ fontSize: 10.5, marginBottom: 7, textTransform: "uppercase", letterSpacing: ".08em" }}>Recording</div>
+      <div className="dim" style={{ fontSize: 13, fontWeight: 600, marginBottom: 7 }}>Recording</div>
       {err ? (
         <div className="muted" style={{ fontSize: 12.5 }}>Audio unavailable.</div>
       ) : url ? (

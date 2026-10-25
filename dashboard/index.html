@@ -2,15 +2,31 @@
 <html lang="en">
   <head>
     <meta charset="UTF-8" />
-    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Offhook · Console</title>
-    <link rel="preconnect" href="https://fonts.googleapis.com" />
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-    <link
-      href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,500;9..144,600&family=Hanken+Grotesk:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap"
-      rel="stylesheet"
-    />
+    <meta name="theme-color" content="#fffdfa" media="(prefers-color-scheme: light)" />
+    <meta name="theme-color" content="#191714" media="(prefers-color-scheme: dark)" />
+    <script>
+      // The shared welldun theme choice (cookie on .welldun.ai, then localStorage),
+      // applied before first paint. Same logic as site/src/components/ThemeHead.astro.
+      (function () {
+        var t = null, fromCookie = false;
+        try {
+          var m = document.cookie.match(/(?:^|;\s*)wd-theme=(light|dark|system)(?:;|$)/);
+          if (m) { fromCookie = true; t = m[1] === "system" ? null : m[1]; }
+        } catch (e) {}
+        if (!fromCookie) {
+          try { var s = localStorage.getItem("wd-theme"); if (s === "light" || s === "dark") t = s; } catch (e) {}
+        }
+        if (t) {
+          document.documentElement.setAttribute("data-theme", t);
+          var metas = document.querySelectorAll('meta[name="theme-color"]');
+          for (var i = 0; i < metas.length; i++) metas[i].setAttribute("content", t === "dark" ? "#191714" : "#fffdfa");
+        }
+      })();
+    </script>
+    <title>Offhook</title>
+    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+    <link rel="preload" href="/fonts/Figtree.woff2" as="font" type="font/woff2" crossorigin />
   </head>
   <body>
     <div id="root"></div>

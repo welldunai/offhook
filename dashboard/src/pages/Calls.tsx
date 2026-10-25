@@ -72,10 +72,10 @@ export default function Calls() {
           <div className="wrap" style={{ gap: 8 }}>
             <div style={{ position: "relative" }}>
               <span style={{ position: "absolute", left: 10, top: 9, color: "var(--ink-3)" }}><Icon name="search" size={15} /></span>
-              <input className="input mono" style={{ width: 190, paddingLeft: 32 }} placeholder="number or id…"
+              <input className="input" style={{ width: 200, paddingLeft: 32 }} placeholder="Number or call ID"
                 value={search} onChange={(e) => setSearch(e.target.value)} />
             </div>
-            <input className="input mono" style={{ width: 180 }} placeholder="tag e.g. region:North"
+            <input className="input" style={{ width: 200 }} placeholder="Tag, e.g. region:North"
               value={tagDraft} onChange={(e) => setTagDraft(e.target.value)}
               onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); addTag(tagDraft); } }} />
           </div>
@@ -134,8 +134,8 @@ export default function Calls() {
         )}
         {!loading && !error && rows.length > 0 && (
           <div className="between" style={{ padding: "12px 16px", borderTop: "1px solid var(--line-2)" }}>
-            <span className="dim mono" style={{ fontSize: 12 }}>
-              Page {page + 1} · showing {rows.length}
+            <span className="dim" style={{ fontSize: 13 }}>
+              Page {page + 1} · {rows.length} calls
             </span>
             <div className="row">
               <button className="btn btn-ghost btn-sm" disabled={page === 0} onClick={() => setPage((p) => Math.max(0, p - 1))}>

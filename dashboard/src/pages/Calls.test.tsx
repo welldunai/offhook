@@ -47,7 +47,7 @@ describe("Calls page", () => {
   it("adds a tag filter via the input and refetches with tags", async () => {
     renderCalls();
     await screen.findByTitle("Filter by region:North");
-    const input = screen.getByPlaceholderText("tag e.g. region:North");
+    const input = screen.getByPlaceholderText("Tag, e.g. region:North");
     await userEvent.type(input, "region:North{Enter}");
     await waitFor(() => expect(lastArgs().tags).toEqual(["region:North"]));
     expect(screen.getByText("Filtering by")).toBeInTheDocument();
@@ -62,7 +62,7 @@ describe("Calls page", () => {
 
   it("removes a tag filter and refetches without it", async () => {
     renderCalls();
-    const input = await screen.findByPlaceholderText("tag e.g. region:North");
+    const input = await screen.findByPlaceholderText("Tag, e.g. region:North");
     await userEvent.type(input, "region:North{Enter}");
     await waitFor(() => expect(lastArgs().tags).toEqual(["region:North"]));
     await userEvent.click(screen.getByLabelText("Remove filter region:North"));
