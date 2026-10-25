@@ -1,0 +1,11 @@
+# The hosted dashboard (HOSTED.md): static files on Cloudflare, free plan.
+name = "offhook-dashboard"
+compatibility_date = "2026-10-01"
+account_id = "884ea67f0f6b2d08d50d15332fbacb09" # Welldun
+workers_dev = false
+routes = [{ pattern = "app.offhook.welldun.ai", custom_domain = true }]
+
+[assets]
+directory = "./dist"
+# A single-page app: every path serves index.html, and React Router takes over.
+not_found_handling = "single-page-application"
