@@ -35,6 +35,11 @@ def _openai_compatible(creds: ResolvedCreds, default_model: str) -> Any:
     }
     if base_url:
         kwargs["base_url"] = base_url
+    # Reasoning models (e.g. gpt-oss on Groq) think before answering; on a live
+    # call, "low" keeps replies quick.
+    effort = creds.setting("reasoning_effort")
+    if effort:
+        kwargs["params"] = OpenAILLMService.InputParams(extra={"reasoning_effort": effort})
     return OpenAILLMService(**kwargs)
 
 

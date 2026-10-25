@@ -103,7 +103,11 @@ def voice_config(settings: DemoSettings) -> VoiceConfig:
         tts=ResolvedCreds(
             "cartesia", {"api_key": settings.cartesia_api_key, "voice_id": settings.cartesia_voice_id}
         ),
-        llm=ResolvedCreds("groq", {"api_key": settings.groq_api_key}, {"model": settings.llm_model}),
+        llm=ResolvedCreds(
+            "groq",
+            {"api_key": settings.groq_api_key},
+            {"model": settings.llm_model, "reasoning_effort": settings.llm_reasoning_effort or None},
+        ),
         debug_logging=False,
     )
 
@@ -337,6 +341,7 @@ class _Watcher(BaseObserver):
         self._call = call
         self._seen: set[int] = set()
         self._sent = 0  # transcript turns already streamed
+        self._results_sent: set[str] = set()  # tool call ids already streamed
 
     async def on_push_frame(self, data: FramePushed) -> None:
         """Handle one frame push. See the class docstring."""
@@ -352,7 +357,12 @@ class _Watcher(BaseObserver):
                 self._call.on_speaking("bot", True)
             elif isinstance(frame, BotStoppedSpeakingFrame):
                 self._call.on_speaking("bot", False)
-            elif isinstance(frame, FunctionCallInProgressFrame) and frame.function_name == "record_result":
+            elif (
+                isinstance(frame, FunctionCallInProgressFrame)
+                and frame.function_name == "record_result"
+                and frame.tool_call_id not in self._results_sent  # pushed both ways, as two frames
+            ):
+                self._results_sent.add(frame.tool_call_id)
                 args = frame.arguments or {}
                 await self._call.send({"type": "result", "key": str(args.get("key", "")), "value": _value(args.get("value"))})
 

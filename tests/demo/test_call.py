@@ -44,7 +44,7 @@ class FakeTask:
 
 def started_call(clock: Clock) -> tuple[DemoCall, FakeTask, list[dict]]:
     """A call that is 'connected' at clock time 100, with a fake task and event sink."""
-    call = DemoCall("sid", PLAN, LIMITS, voice_config(DemoSettings()), clock=clock)
+    call = DemoCall("sid", PLAN, LIMITS, voice_config(DemoSettings(_env_file=None)), clock=clock)
     task, events = FakeTask(), []
     call._task = task
     call._started = call._last_activity = clock()
@@ -66,10 +66,10 @@ def test_call_context_spells_out_the_fields():
 
 
 def test_voice_config_uses_the_demo_keys():
-    cfg = voice_config(DemoSettings(DEEPGRAM_API_KEY="d", CARTESIA_API_KEY="c", CARTESIA_VOICE_ID="v", GROQ_API_KEY="g"))
+    cfg = voice_config(DemoSettings(_env_file=None, DEEPGRAM_API_KEY="d", CARTESIA_API_KEY="c", CARTESIA_VOICE_ID="v", GROQ_API_KEY="g"))
     assert cfg.stt.secret("api_key") == "d"
     assert cfg.tts.secret("voice_id") == "v"
-    assert cfg.llm.provider_name == "groq" and cfg.llm.setting("model") == "llama-3.3-70b-versatile"
+    assert cfg.llm.provider_name == "groq" and cfg.llm.setting("model") == "openai/gpt-oss-20b"
 
 
 async def test_wraps_up_then_hangs_up_at_the_limit():
@@ -151,7 +151,7 @@ def test_results_keep_only_plan_fields_and_cap_lengths():
 
 
 def test_results_for_a_call_that_never_connected():
-    call = DemoCall("sid", PLAN, LIMITS, voice_config(DemoSettings()))
+    call = DemoCall("sid", PLAN, LIMITS, voice_config(DemoSettings(_env_file=None)))
     r = call.results()
     assert (r["duration_seconds"], r["end_reason"], r["transcript"]) == (0.0, "error", [])
 
@@ -179,7 +179,8 @@ async def test_watcher_streams_turns_and_results_once_and_tracks_speaking():
     call.transcript.append({"role": "user", "text": "Thursday", "t": 2.0})
     clock.t += 0.5
     await push(BotStartedSpeakingFrame())
-    await push(FunctionCallInProgressFrame(function_name="record_result", tool_call_id="1", arguments={"key": "new_day", "value": "Thursday"}))
+    for _ in range(2):  # Pipecat pushes the same call as two frames
+        await push(FunctionCallInProgressFrame(function_name="record_result", tool_call_id="1", arguments={"key": "new_day", "value": "Thursday"}))
     await push(FunctionCallInProgressFrame(function_name="end_call", tool_call_id="2", arguments={"summary": "done"}))
 
     assert events == [

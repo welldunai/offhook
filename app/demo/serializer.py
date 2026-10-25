@@ -27,6 +27,8 @@ from pipecat.frames.frames import (
 from pipecat.serializers.base_serializer import FrameSerializer
 
 SAMPLE_RATE = 16_000
+#: The events the browser understands; anything else is dropped.
+EVENT_TYPES = {"transcript", "result", "interrupt", "wrap_up", "ended", "error"}
 #: Largest audio message accepted from the browser: one second of audio.
 MAX_CHUNK_BYTES = SAMPLE_RATE * 2
 
@@ -48,7 +50,12 @@ class DemoSerializer(FrameSerializer):
         if isinstance(frame, InterruptionFrame):
             return json.dumps({"type": "interrupt"})
         if isinstance(frame, (OutputTransportMessageFrame, OutputTransportMessageUrgentFrame)):
-            return json.dumps(frame.message)
+            # Pipecat also emits its own RTVI messages (per-word timings, metrics);
+            # only the demo's events go to the browser.
+            message = frame.message
+            if not isinstance(message, dict) or message.get("type") not in EVENT_TYPES or "label" in message:
+                return None
+            return json.dumps(message)
         return None
 
     async def deserialize(self, data: str | bytes) -> Frame | None:

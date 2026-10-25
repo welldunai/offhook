@@ -40,7 +40,7 @@ class FakeWorker:
 
 
 def make(fake: FakeWorker, settings: DemoSettings | None = None, runs: list | None = None) -> TestClient:
-    settings = settings or DemoSettings(**FULL)
+    settings = settings or DemoSettings(_env_file=None, **FULL)
     worker = WorkerClient("http://worker.test", settings.hmac_secret, transport=httpx.MockTransport(fake))
 
     async def runner(call, websocket):
@@ -52,7 +52,7 @@ def make(fake: FakeWorker, settings: DemoSettings | None = None, runs: list | No
 
 
 def test_healthz_reports_missing_settings_by_name_only():
-    res = make(FakeWorker(), DemoSettings(DEMO_HMAC_SECRET="secret")).get("/healthz")
+    res = make(FakeWorker(), DemoSettings(_env_file=None, DEMO_HMAC_SECRET="secret")).get("/healthz")
     assert res.status_code == 503
     assert set(res.json()["missing"]) == {"DEEPGRAM_API_KEY", "CARTESIA_API_KEY", "CARTESIA_VOICE_ID", "GROQ_API_KEY"}
     assert make(FakeWorker()).get("/healthz").json() == {"ok": True, "calls": 0}

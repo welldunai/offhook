@@ -32,3 +32,11 @@ async def test_audio_out_is_raw_pcm_and_events_are_json():
     msg = {"type": "transcript", "who": "agent", "text": "Hi"}
     assert json.loads(await s.serialize(OutputTransportMessageUrgentFrame(message=msg))) == msg
     assert await s.serialize(TextFrame(text="not sent")) is None
+
+
+async def test_drops_pipecats_own_rtvi_messages():
+    s = DemoSerializer()
+    rtvi = {"label": "rtvi-ai", "type": "bot-tts-text", "data": {"text": "Hi"}}
+    assert await s.serialize(OutputTransportMessageUrgentFrame(message=rtvi)) is None
+    assert await s.serialize(OutputTransportMessageUrgentFrame(message={"type": "metrics"})) is None
+    assert await s.serialize(OutputTransportMessageUrgentFrame(message="text")) is None

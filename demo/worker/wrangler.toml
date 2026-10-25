@@ -5,7 +5,7 @@ compatibility_date = "2026-10-01"
 
 [vars]
 ALLOWED_ORIGINS = "https://offhook.welldun.ai,http://localhost:4321,http://localhost:4370"
-PLANNER_MODEL = "llama-3.3-70b-versatile"
+PLANNER_MODEL = "openai/gpt-oss-120b"
 DAILY_PLANS_PER_VISITOR = "10"
 DAILY_CALLS_PER_VISITOR = "3"
 MAX_CALL_SECONDS = "120"

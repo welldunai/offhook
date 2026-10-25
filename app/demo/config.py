@@ -19,9 +19,10 @@ class DemoSettings(BaseSettings):
     cartesia_api_key: str = Field(default="", alias="CARTESIA_API_KEY")
     cartesia_voice_id: str = Field(default="", alias="CARTESIA_VOICE_ID")
     groq_api_key: str = Field(default="", alias="GROQ_API_KEY")
-    #: The agent's model on demo calls. Tool calls (record_result, end_call) are
-    #: more reliable on the 70B model than on the 8B default.
-    llm_model: str = Field(default="llama-3.3-70b-versatile", alias="DEMO_LLM_MODEL")
+    #: The agent's model on demo calls (Groq). Groq retired its Llama models.
+    llm_model: str = Field(default="openai/gpt-oss-20b", alias="DEMO_LLM_MODEL")
+    #: gpt-oss reasons before answering; "low" keeps the reply gap short. Empty to omit.
+    llm_reasoning_effort: str = Field(default="low", alias="DEMO_LLM_REASONING_EFFORT")
 
     hmac_secret: str = Field(default="", alias="DEMO_HMAC_SECRET")
     worker_url: str = Field(default="http://localhost:8787", alias="WORKER_URL")
