@@ -97,9 +97,13 @@ h1, h2 { text-wrap: balance; }
 .docs-prose .wd-table-wrap { overflow-x: auto; }
 .docs-prose .pname { font-family: var(--font-mono); font-size: 13.5px; }
 
-.endpoint { display: flex; align-items: center; gap: var(--space-3); padding: 10px 14px; border: 1px solid var(--line); border-radius: var(--radius-md); background: var(--surface-raised); overflow-x: auto; }
+.endpoint { display: flex; align-items: center; gap: var(--space-3); padding: 9px 14px; border-radius: var(--radius-md); background: var(--surface-sunken); overflow-x: auto; }
 .endpoint + .endpoint { margin-top: var(--space-2); }
-.endpoint-method { flex: none; font-family: var(--font-mono); font-size: 11px; font-weight: 500; letter-spacing: 0.06em; padding: 3px 7px; border-radius: var(--radius-sm); background: var(--ink); color: var(--surface); }
+.endpoint-method { flex: none; display: inline-flex; align-items: center; justify-content: center; min-width: 62px; height: 24px; padding: 0 9px; border-radius: var(--radius-sm); background: var(--surface-raised); color: var(--ink); font-family: var(--font-mono); font-size: 12px; font-weight: 500; letter-spacing: 0.02em; }
+.endpoint-method--get { background: var(--tint-blue); }
+.endpoint-method--post { background: var(--tint-mint); }
+.endpoint-method--patch, .endpoint-method--put { background: var(--tint-yellow); }
+.endpoint-method--delete { background: var(--tint-peach); }
 .wd-prose .endpoint-path { font-family: var(--font-mono); font-size: 14px; padding: 0; background: none; white-space: nowrap; }
 .endpoint-param { color: var(--ink-muted); }
 
