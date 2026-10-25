@@ -1,5 +1,4 @@
-# The live demo's public API (DEMO.md). Free plan. Step 2a: routing, CORS and the planner.
-# Turnstile, the Gate, D1 and sessions come in the next steps.
+# The live demo's public API (DEMO.md). Free plan.
 name = "offhook-demo"
 main = "src/index.ts"
 compatibility_date = "2026-10-01"
@@ -7,5 +6,24 @@ compatibility_date = "2026-10-01"
 [vars]
 ALLOWED_ORIGINS = "https://offhook.welldun.ai,http://localhost:4321,http://localhost:4370"
 PLANNER_MODEL = "llama-3.3-70b-versatile"
+DAILY_PLANS_PER_VISITOR = "10"
 
-# Secrets (wrangler secret put, or .dev.vars locally): GROQ_API_KEY
+# Secrets (wrangler secret put; .dev.vars locally):
+#   GROQ_API_KEY, TURNSTILE_SECRET_KEY, VISITOR_HASH_SALT
+
+# The Gate: one instance holds every limit, so counts can't race.
+[[durable_objects.bindings]]
+name = "GATE"
+class_name = "Gate"
+
+[[migrations]]
+tag = "v1"
+new_sqlite_classes = ["Gate"]
+
+# Sessions and the waitlist. The real database_id is filled in at deploy (milestone 4);
+# local dev (wrangler dev) uses a local database and ignores it.
+[[d1_databases]]
+binding = "DB"
+database_name = "offhook-demo"
+database_id = "00000000-0000-0000-0000-000000000000"
+migrations_dir = "migrations"
