@@ -14,6 +14,7 @@ A connection's life:
 
 from __future__ import annotations
 
+import asyncio
 import json
 from typing import Any, Awaitable, Callable
 
@@ -27,6 +28,10 @@ from app.demo.serializer import SAMPLE_RATE, DemoSerializer
 from app.demo.signing import read_ticket
 from app.demo.worker import ClaimRefused, WorkerClient
 from app.logger import logger
+
+#: Seconds past a call's time limit before the server gives up on it, whatever
+#: the pipeline is doing: the results are posted and the line is freed.
+WATCHDOG_GRACE = 45
 
 #: Runs a claimed call over a socket; tests replace it.
 CallRunner = Callable[[DemoCall, WebSocket], Awaitable[None]]
@@ -110,12 +115,21 @@ def create_app(
         )
         state["active"] += 1
         logger.info(f"[demo] call {session_id} starting ({state['active']} active)")
+        running = asyncio.create_task(runner(call, websocket))
         try:
-            await runner(call, websocket)
-        except Exception:
-            logger.exception(f"[demo] call {session_id} crashed")
-            call.failed = True
-            call.end_reason = "error"
+            done, _ = await asyncio.wait({running}, timeout=call.limits.max_seconds + WATCHDOG_GRACE)
+            if not done:
+                logger.error(f"[demo] call {session_id} didn't finish; giving up on it")
+                running.cancel()
+                call.end_reason = call.end_reason or "error"
+                try:
+                    await websocket.close()
+                except Exception:  # noqa: BLE001 - already closed
+                    pass
+            elif running.exception() is not None:
+                logger.opt(exception=running.exception()).error(f"[demo] call {session_id} crashed")
+                call.failed = True
+                call.end_reason = "error"
         finally:
             state["active"] -= 1
             await worker.post_results(call.results())

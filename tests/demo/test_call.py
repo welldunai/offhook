@@ -1,5 +1,7 @@
 """DemoCall: the plan → context mapping, the limits, response times and results."""
 
+import asyncio
+
 from typing import Any
 
 from pipecat.frames.frames import EndFrame, LLMMessagesAppendFrame, TTSSpeakFrame
@@ -39,10 +41,16 @@ class FakeTask:
         self.frames.extend(frames)
 
     def has_finished(self) -> bool:
-        return True
+        return self.finished
 
     async def cancel(self) -> None:
         self.cancelled = True
+
+    def finish(self) -> None:
+        self.finished = True
+
+    finished = False
+    cancelled = False
 
 
 def started_call(clock: Clock) -> tuple[DemoCall, FakeTask, list[dict]]:
@@ -184,7 +192,11 @@ async def test_watcher_streams_turns_and_results_once_and_tracks_speaking():
     await push(BotStartedSpeakingFrame())
     for _ in range(2):  # Pipecat pushes the same call as two frames
         await push(FunctionCallInProgressFrame(function_name="record_result", tool_call_id="1", arguments={"key": "new_day", "value": "Thursday"}))
-    await push(FunctionCallInProgressFrame(function_name="end_call", tool_call_id="2", arguments={"summary": "done"}))
+    from pipecat.frames.frames import FunctionCallResultFrame
+
+    refused = {"ended": False, "reason": "asked a question"}
+    await push(FunctionCallResultFrame(function_name="end_call", tool_call_id="2", arguments={}, result=refused))
+    await push(FunctionCallResultFrame(function_name="end_call", tool_call_id="3", arguments={}, result={"acknowledged": True}))
 
     assert events == [
         {"type": "transcript", "who": "agent", "text": "Hi"},
@@ -199,6 +211,8 @@ async def test_an_error_before_the_agent_speaks_fails_the_call():
     clock = Clock()
     call, task, events = started_call(clock)
     await call.on_error("Unable to connect to Deepgram")
+    await asyncio.sleep(0)
+    await asyncio.sleep(0)
     assert call.failed and call.end_reason == "error" and task.cancelled
     assert events[-1]["error"] == "provider_error"
     assert call.results()["status"] == "failed"
@@ -212,4 +226,29 @@ async def test_a_few_errors_are_tolerated_once_the_agent_has_spoken():
     await call.on_error("tts hiccup")
     assert not call.failed and events == []
     await call.on_error("tts hiccup")
+    await asyncio.sleep(0)
+    await asyncio.sleep(0)
     assert call.failed and task.cancelled
+
+
+async def test_agent_hang_up_stops_the_call_even_if_the_end_frame_is_lost(monkeypatch):
+    import app.demo.call as call_mod
+
+    monkeypatch.setattr(call_mod, "HARD_STOP_SECONDS", 0.01)
+    clock = Clock()
+    call, task, _ = started_call(clock)
+    call.agent_ended()
+    await asyncio.sleep(0.05)
+    assert call.end_reason == "agent_ended" and task.cancelled
+
+
+async def test_agent_hang_up_leaves_a_finished_call_alone(monkeypatch):
+    import app.demo.call as call_mod
+
+    monkeypatch.setattr(call_mod, "HARD_STOP_SECONDS", 0.01)
+    clock = Clock()
+    call, task, _ = started_call(clock)
+    call.agent_ended()
+    task.finish()
+    await asyncio.sleep(0.05)
+    assert not task.cancelled

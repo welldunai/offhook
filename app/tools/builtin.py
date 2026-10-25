@@ -11,7 +11,7 @@ it; nothing else changes.
 from __future__ import annotations
 
 from pipecat.adapters.schemas.function_schema import FunctionSchema
-from pipecat.frames.frames import EndFrame
+from pipecat.frames.frames import EndFrame, FunctionCallResultProperties
 from pipecat.services.llm_service import FunctionCallParams
 
 from app.logger import logger
@@ -41,10 +41,19 @@ class RecordResultTool(Tool):
         async def handler(params: FunctionCallParams) -> None:
             key = params.arguments.get("key")
             value = params.arguments.get("value")
-            if key is not None:
+            # Models sometimes "reserve" a field with a placeholder before asking.
+            placeholder = value is None or str(value).strip() in {"", "?"}
+            if key is not None and not placeholder:
                 ctx.outcome.data[str(key)] = value
             logger.info(f"[voice] result recorded: {key}={value}")
-            await params.result_callback({"acknowledged": True})
+            # By default the LLM runs again after every tool result. If the agent
+            # already spoke this turn, that second run makes it talk again while
+            # the person is silent ("Thanks for that. How about…"). Only let it
+            # continue when it recorded before saying anything.
+            spoke = bool(ctx.agent_said().strip())
+            await params.result_callback(
+                {"acknowledged": True}, properties=FunctionCallResultProperties(run_llm=not spoke)
+            )
 
         return handler
 
@@ -54,8 +63,11 @@ class EndCallTool(Tool):
     schema = FunctionSchema(
         name="end_call",
         description=(
-            "Call when the conversation has reached a natural conclusion and you "
-            "are ready to hang up. Provide a one-line summary of what happened."
+            "Hang up. Only call this after the other person has replied to your "
+            "last message and the conversation is over: you have said goodbye and "
+            "they have nothing more to add. Never call it in the same turn as a "
+            "question (for example 'Anything else?'); ask, wait for the answer, "
+            "say goodbye, then call it. Provide a one-line summary of what happened."
         ),
         properties={
             "summary": {"type": "string", "description": "One-line outcome summary"},
@@ -65,6 +77,21 @@ class EndCallTool(Tool):
 
     def make_handler(self, ctx: ToolContext) -> ToolHandler:
         async def handler(params: FunctionCallParams) -> None:
+            # Models often say "Anything else?" and hang up in the same breath.
+            # Keep the line open until the person has answered; run_llm=False so
+            # the agent doesn't say anything new while it waits.
+            if ctx.agent_said().rstrip().endswith("?"):
+                logger.info("[voice] end_call refused: the agent just asked a question")
+                await params.result_callback(
+                    {
+                        "ended": False,
+                        "reason": "You just asked them a question, so the call is still open. "
+                        "Wait for their answer; when the conversation is over, say goodbye "
+                        "and call end_call again.",
+                    },
+                    properties=FunctionCallResultProperties(run_llm=False),
+                )
+                return
             ctx.outcome.summary = params.arguments.get("summary")
             ctx.outcome.ended_by_agent = True
             logger.info(f"[voice] end_call: {ctx.outcome.summary}")

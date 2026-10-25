@@ -44,7 +44,11 @@ VOICE_CONSTRAINTS = """HOW TO SPEAK — your words are spoken aloud in real time
   - Spell out amounts and dates the way a person would say them aloud.
   - If the other person interrupts, stop and listen.
   - Never invent facts that are not in your instructions or the call context.
-  - When the conversation has reached a natural end, call the `end_call` tool."""
+  - Only record an answer with `record_result` once the person has actually
+    given it. Never record placeholders like "?" or "unknown" ahead of asking.
+  - End the call with the `end_call` tool only once the conversation is truly
+    over: you've said goodbye and the other person has nothing more to add.
+    Never call it in the same turn as a question; wait for the answer first."""
 
 
 def build_system_prompt(ctx: CallContext) -> str:

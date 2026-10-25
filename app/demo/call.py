@@ -24,6 +24,7 @@ from pipecat.frames.frames import (
     EndFrame,
     ErrorFrame,
     FunctionCallInProgressFrame,
+    FunctionCallResultFrame,
     LLMMessagesAppendFrame,
     OutputTransportMessageFrame,
     OutputTransportMessageUrgentFrame,
@@ -157,6 +158,7 @@ class DemoCall:
         self._user_stopped_at: float | None = None
         self._wrapped = False
         self._errors = 0
+        self._stoppers: list[asyncio.Task] = []
         self._agent_spoke = False
         self._task: Any = None
         self._transport: Any = None
@@ -191,7 +193,9 @@ class DemoCall:
         async def _disconnected(_t: Any, _c: Any) -> None:
             if self.end_reason is None:
                 self.end_reason = "hung_up"
-            await task.cancel()
+            # Not awaited: this handler runs inside the transport's own receive
+            # task, and cancelling the pipeline waits for that task to stop.
+            self.stop_soon(0)
 
         try:
             await PipelineRunner(handle_sigint=False).run(task)
@@ -223,12 +227,34 @@ class DemoCall:
             [TTSSpeakFrame(goodbye), OutputTransportMessageFrame(message={"type": "ended", "reason": reason}), EndFrame()]
         )
 
-        async def _hard_stop() -> None:
-            await asyncio.sleep(HARD_STOP_SECONDS)
-            if not self._task.has_finished():
-                await self._task.cancel()
+        self.stop_soon(HARD_STOP_SECONDS)
 
-        asyncio.create_task(_hard_stop())
+    def stop_soon(self, seconds: float) -> None:
+        """Cancel the pipeline after ``seconds`` unless it has finished by then.
+
+        Runs in the background, so callers never wait on Pipecat's cancellation.
+
+        Args:
+            seconds: How long to give the pipeline to finish on its own.
+        """
+        task = self._task
+        if task is None:
+            return
+
+        async def _stop() -> None:
+            await asyncio.sleep(seconds)
+            if not task.has_finished():
+                await task.cancel()
+
+        self._stoppers.append(asyncio.create_task(_stop()))
+
+    def agent_ended(self) -> None:
+        """The agent called end_call. Its EndFrame can be lost if the person talks
+        over the goodbye (an interruption drops queued frames), so make sure the
+        call stops anyway."""
+        if self.end_reason is None:
+            self.end_reason = "agent_ended"
+        self.stop_soon(HARD_STOP_SECONDS)
 
     async def tick(self) -> bool:
         """Apply the time and silence limits once.
@@ -307,8 +333,7 @@ class DemoCall:
         self.failed = True
         self.end_reason = "error"
         await self.send({"type": "error", "error": "provider_error", "message": PROVIDER_ERROR})
-        if self._task is not None:
-            await self._task.cancel()
+        self.stop_soon(0)
 
     # --- results --------------------------------------------------------------
 
@@ -394,12 +419,14 @@ class _Watcher(BaseObserver):
                 args = frame.arguments or {}
                 await self._call.send({"type": "result", "key": str(args.get("key", "")), "value": _value(args.get("value"))})
             elif (
-                isinstance(frame, FunctionCallInProgressFrame)
+                isinstance(frame, FunctionCallResultFrame)
                 and frame.function_name == "end_call"
                 and frame.tool_call_id not in self._results_sent
+                and not (isinstance(frame.result, dict) and frame.result.get("ended") is False)
             ):
                 # The agent is hanging up; the socket closes once its goodbye has played.
                 self._results_sent.add(frame.tool_call_id)
+                self._call.agent_ended()
                 await self._call.send({"type": "ended", "reason": "agent_ended"})
 
         # TranscriptCollector appends turns to the outcome; stream any new ones.

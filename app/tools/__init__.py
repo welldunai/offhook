@@ -16,7 +16,7 @@ Adding a tool:
 """
 
 from app.registry import Registry
-from app.tools.base import CallOutcome, Tool, ToolContext, ToolHandler
+from app.tools.base import AgentTurnText, CallOutcome, Tool, ToolContext, ToolHandler
 
 #: name → Tool subclass. Populated by the modules imported below.
 tool_registry: Registry[type[Tool]] = Registry("tool")
@@ -33,6 +33,7 @@ __all__ = [
     "DEFAULT_TOOLS",
     "build_tools_schema",
     "register_handlers",
+    "AgentTurnText",
     "CallOutcome",
     "Tool",
     "ToolContext",

@@ -98,3 +98,25 @@ def test_a_claim_for_another_session_is_refused():
     with make(fake, runs=runs).websocket_connect(f"/ws?ticket={make_ticket('secret', SID)}", headers=SITE) as ws:
         assert json.loads(ws.receive_text())["error"] == "bad_ticket"
     assert runs == []
+
+
+def test_a_call_that_never_finishes_is_given_up_on_and_reported(monkeypatch):
+    import asyncio
+
+    import app.demo.server as server
+
+    monkeypatch.setattr(server, "WATCHDOG_GRACE", -119.8)  # 0.2 s after the start, for the test
+    fake = FakeWorker()
+    settings = DemoSettings(_env_file=None, **FULL)
+    worker = WorkerClient("http://worker.test", "secret", transport=httpx.MockTransport(fake))
+
+    async def stuck(call, websocket):
+        await asyncio.Event().wait()  # a pipeline that never ends
+
+    client = TestClient(create_app(settings, worker, stuck))
+    with client.websocket_connect(f"/ws?ticket={make_ticket('secret', SID)}", headers=SITE) as ws:
+        with pytest.raises(WebSocketDisconnect):
+            ws.receive_text()
+    assert [p for p, _, _ in fake.requests] == ["/internal/claim", "/internal/results"]
+    assert fake.requests[1][1]["end_reason"] == "error"
+    assert client.get("/healthz").json()["calls"] == 0

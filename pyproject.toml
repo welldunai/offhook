@@ -27,6 +27,9 @@ dependencies = [
     "pipecat-ai[cartesia,deepgram,openai,runner,silero,webrtc]==0.0.101",
     # Pipecat's prebuilt playground UI served at /client for local testing.
     "pipecat-ai-small-webrtc-prebuilt==2.5.0",
+    # Smart Turn v3's audio features (end-of-turn detection, app/pipeline.py).
+    # Only the feature extractor is used, so PyTorch is not needed.
+    "transformers>=4.48",
 ]
 
 [tool.setuptools.packages.find]

@@ -23,7 +23,9 @@ from typing import Any, Awaitable, Callable
 from pydantic import BaseModel, Field
 
 from pipecat.adapters.schemas.function_schema import FunctionSchema
+from pipecat.frames.frames import Frame, InterruptionFrame, LLMTextFrame, UserStartedSpeakingFrame
 from pipecat.pipeline.task import PipelineTask
+from pipecat.processors.frame_processor import FrameDirection, FrameProcessor
 from pipecat.services.llm_service import FunctionCallParams
 
 #: A bound tool handler: receives the LLM's call params, does its work, and
@@ -57,11 +59,39 @@ class ToolContext:
 
     ``outcome`` is the mutable result accumulator. ``task`` is the running
     pipeline — tools need it to inject frames (e.g. ``end_call`` queues an
-    ``EndFrame`` to hang up).
+    ``EndFrame`` to hang up). ``agent_said`` returns what the agent has said
+    since the other person last started talking (see :class:`AgentTurnText`).
     """
 
     outcome: CallOutcome
     task: PipelineTask
+    agent_said: Callable[[], str] = lambda: ""
+
+
+class AgentTurnText(FrameProcessor):
+    """Remembers what the agent has said since the other person last spoke.
+
+    Sits right after the LLM. ``end_call`` uses it to refuse hanging up straight
+    after a question ("Anything else?") that the person hasn't answered yet.
+    """
+
+    def __init__(self) -> None:
+        super().__init__()
+        self.text = ""
+
+    async def process_frame(self, frame: Frame, direction: FrameDirection) -> None:
+        """Track the agent's text; reset when the person starts talking.
+
+        Args:
+            frame: Any frame passing through.
+            direction: Its direction; frames are always passed on unchanged.
+        """
+        await super().process_frame(frame, direction)
+        if isinstance(frame, (UserStartedSpeakingFrame, InterruptionFrame)):
+            self.text = ""
+        elif isinstance(frame, LLMTextFrame):
+            self.text += frame.text
+        await self.push_frame(frame, direction)
 
 
 class Tool(abc.ABC):

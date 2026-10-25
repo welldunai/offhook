@@ -26,7 +26,43 @@ from app.config import VoiceConfig
 from app.prompts import build_opener, build_system_prompt
 from app.providers import build_llm, build_stt, build_tts
 from app.schemas import CallContext
-from app.tools import CallOutcome, ToolContext, build_tools_schema, register_handlers
+from app.tools import AgentTurnText, CallOutcome, ToolContext, build_tools_schema, register_handlers
+
+
+def _user_turn_params() -> LLMUserAggregatorParams:
+    """How the agent decides the other person has finished talking.
+
+    Speech-to-text finalises at every short pause, so on its own the agent
+    answers "No." while the person is still saying "No… could we do Wednesday?".
+    Smart Turn v3 (a small on-device model bundled with Pipecat) listens to the
+    audio and holds the turn open when the sentence sounds unfinished. VAD then
+    only needs a short pause before asking it. Without ``transformers`` installed,
+    falls back to Pipecat's transcription-based default.
+    """
+    try:
+        from pipecat.audio.turn.smart_turn.base_smart_turn import SmartTurnParams
+        from pipecat.audio.turn.smart_turn.local_smart_turn_v3 import LocalSmartTurnAnalyzerV3
+        from pipecat.audio.vad.vad_analyzer import VADParams
+        from pipecat.turns.user_stop.turn_analyzer_user_turn_stop_strategy import (
+            TurnAnalyzerUserTurnStopStrategy,
+        )
+        from pipecat.turns.user_turn_strategies import UserTurnStrategies
+
+        # When the model thinks the sentence is unfinished, wait at most this long
+        # in silence before answering anyway (Pipecat's default of 3 s feels slow).
+        analyzer = LocalSmartTurnAnalyzerV3(params=SmartTurnParams(stop_secs=1.5))
+    except Exception as e:  # noqa: BLE001 - missing optional deps or model
+        from app.logger import logger
+
+        logger.warning(f"[voice] Smart Turn unavailable ({e.__class__.__name__}); using transcription turn-taking")
+        return LLMUserAggregatorParams(vad_analyzer=SileroVADAnalyzer())
+    return LLMUserAggregatorParams(
+        vad_analyzer=SileroVADAnalyzer(params=VADParams(stop_secs=0.2)),
+        user_turn_strategies=UserTurnStrategies(stop=[TurnAnalyzerUserTurnStopStrategy(turn_analyzer=analyzer)]),
+        # A transcript can arrive just after Smart Turn ended the turn; it opens a
+        # turn with no speech in it, which otherwise waits 5 s before closing.
+        user_turn_stop_timeout=1.0,
+    )
 
 
 def build_pipeline_task(
@@ -73,7 +109,7 @@ def build_pipeline_task(
     )
     user_aggregator, assistant_aggregator = LLMContextAggregatorPair(
         context,
-        user_params=LLMUserAggregatorParams(vad_analyzer=SileroVADAnalyzer()),
+        user_params=_user_turn_params(),
     )
 
     # Capture the conversation into the outcome (persisted as the transcript).
@@ -129,7 +165,8 @@ def build_pipeline_task(
     stages = [transport.input()]
     if rtvi is not None:
         stages.append(rtvi)
-    stages += [stt, user_aggregator, llm, ToolCallTextFilter(), tts, transport.output(), assistant_aggregator]
+    agent_text = AgentTurnText()
+    stages += [stt, user_aggregator, llm, agent_text, ToolCallTextFilter(), tts, transport.output(), assistant_aggregator]
 
     # Optional audio recording: capture the mixed (user + bot) call audio. Placed
     # last so it sees both the input and the synthesized output audio.
@@ -154,5 +191,9 @@ def build_pipeline_task(
         ),
         observers=observers,
     )
-    register_handlers(llm, ToolContext(outcome=outcome, task=task), custom_tools=custom_tools)
+    register_handlers(
+        llm,
+        ToolContext(outcome=outcome, task=task, agent_said=lambda: agent_text.text),
+        custom_tools=custom_tools,
+    )
     return task, outcome, llm, audiobuffer
