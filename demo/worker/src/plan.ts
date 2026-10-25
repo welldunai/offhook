@@ -41,21 +41,22 @@ If the purpose is fine:
 {"status":"planned","plan":{
   "agent":{"name":"first name","company":"company name","role":"job title"},
   "person":"who the visitor plays, e.g. 'the customer'",
-  "brief":"2-3 sentences telling the visitor who they are and a realistic situation to act out. Address them as 'you'.",
+  "brief":"2-3 sentences for the visitor, who plays the person being called: who they are and a realistic situation to act out, so the call has something to resolve. Written as stage directions to the visitor, in 'you'. Good: 'You missed a delivery yesterday. You're home on Thursday, and the driver should leave it with a neighbour.' Bad (the agent talking): 'We need to know when you're home.' Never use 'we', 'us' or 'our'.",
   "goal":"one plain sentence: what the agent is trying to get done",
   "firstMessage":"the agent's opening line: greet, say who it is and why it's calling, ask if now is a good time",
   "instructions":"the agent's instructions, in second person: what to ask, in what order, one question at a time, what to do if the person says no, and to record each answer with record_result. Under 150 words.",
-  "assumptions":{"short_key":"a fact the agent needs that the visitor didn't give, e.g. a date or an order number"},
-  "fields":[{"key":"snake_case_key","label":"Short label"}]
+  "assumptions":{"short_key":"a concrete made-up value the agent needs, e.g. \"missed_date\":\"Monday 20 October\" or \"order_number\":\"48213\""},
+  "fields":[{"key":"snake_case_key","label":"Short label in sentence case, e.g. 'New delivery day'"}]
 }}
 
 If the purpose must be refused:
-{"status":"refused","reason":"one short, polite sentence saying why"}
+{"status":"refused","reason":"one short sentence the visitor understands, naming the problem, e.g. 'It asks people to read out a one-time code, which is how bank scams work.'"}
 
 Rules:
 - Use the company the visitor names; otherwise make up a plausible fictional one. Never use a real bank, government body, delivery company or famous brand, and never pretend to be a real, named person.
 - 1 to ${MAX_FIELDS} fields: the answers the call is for. Keys are lowercase snake_case.
-- At most ${MAX_ASSUMPTIONS} assumptions, only facts the agent needs.
+- At most ${MAX_ASSUMPTIONS} assumptions, only facts the agent needs, each a concrete value (a date, a time, a number, a name), never a description of what's missing.
+- The agent should not ask for information it was given in the assumptions; it confirms it instead.
 - Keep everything friendly, brief and natural for a phone call. Plain words, no markdown.
 - Refuse purposes that are: scams or deception (impersonating a real organisation or person, fake prizes, fake debts); collecting passwords, one-time codes, card or bank numbers; harassment, threats or intimidation; political or election calls; illegal or sexual content; or anything that isn't a phone call a business or person would plausibly make.`;
 
@@ -91,7 +92,7 @@ export function parsePlanResult(data: unknown): PlanResult {
     const fo = obj(f, `fields[${i}]`);
     const key = text(fo.key, `fields[${i}].key`, 40);
     if (!KEY.test(key)) throw new PlannerError(`fields[${i}].key must be snake_case`);
-    return { key, label: text(fo.label, `fields[${i}].label`, LIMITS.fieldLabel) };
+    return { key, label: sentenceCase(text(fo.label, `fields[${i}].label`, LIMITS.fieldLabel)) };
   });
   if (new Set(fields.map((f) => f.key)).size !== fields.length) throw new PlannerError("field keys must be unique");
 
@@ -110,7 +111,7 @@ export function parsePlanResult(data: unknown): PlanResult {
       agent: {
         name: text(agent.name, "agent.name", LIMITS.name),
         company: text(agent.company, "agent.company", LIMITS.company),
-        role: text(agent.role, "agent.role", LIMITS.role),
+        role: roleCase(text(agent.role, "agent.role", LIMITS.role)),
       },
       person: text(p.person, "person", LIMITS.person),
       brief: text(p.brief, "brief", LIMITS.brief),
@@ -126,12 +127,12 @@ export function parsePlanResult(data: unknown): PlanResult {
 /**
  * Asks Groq for a plan and validates it.
  * Args: purpose — a purpose already passed through checkPurpose; opts — API key, model,
- *   and an optional fetch (tests pass a fake).
+ *   an optional fetch (tests pass a fake) and the current time (for "today" in the prompt).
  * Returns: a PlanResult. Throws PlannerError if Groq fails or answers badly.
  */
 export async function planCall(
   purpose: string,
-  opts: { apiKey: string; model: string; fetch?: typeof fetch },
+  opts: { apiKey: string; model: string; fetch?: typeof fetch; now?: Date },
 ): Promise<PlanResult> {
   const doFetch = opts.fetch ?? fetch;
   let res: Response;
@@ -146,7 +147,7 @@ export async function planCall(
         response_format: { type: "json_object" },
         messages: [
           { role: "system", content: SYSTEM_PROMPT },
-          { role: "user", content: `Purpose of the call:\n${purpose}` },
+          { role: "user", content: `${calendar(opts.now)}\n\nPurpose of the call:\n${purpose}` },
         ],
       }),
       signal: AbortSignal.timeout(20_000),
@@ -179,4 +180,44 @@ function text(v: unknown, where: string, max: number): string {
   const t = v.trim();
   if (t.length > max) throw new PlannerError(`${where} is over ${max} characters`);
   return t;
+}
+
+/**
+ * Labels are sentence case across welldun sites. Models like Title Case, so
+ * "New Delivery Date" becomes "New delivery date"; acronyms ("SKU") and labels
+ * that aren't Title Case are left alone.
+ * Args: label — a validated field label.
+ * Returns: the label in sentence case.
+ */
+export function sentenceCase(label: string): string {
+  const words = label.split(" ");
+  const titleCase = words.length > 1 && words.every((w) => /^[A-Z]/.test(w));
+  if (!titleCase) return label;
+  return words.map((w, i) => (i === 0 || /^[A-Z0-9]+$/.test(w) ? w : w.toLowerCase())).join(" ");
+}
+
+/**
+ * Roles are read mid-sentence ("Alex, front desk assistant at Acme Clinic"), so a
+ * Title Case role becomes lowercase, keeping acronyms ("HR").
+ * Args: role — a validated role.
+ * Returns: the role, lowercased if it was Title Case.
+ */
+export function roleCase(role: string): string {
+  const words = role.split(" ");
+  if (!words.every((w) => /^[A-Z]/.test(w))) return role;
+  return words.map((w) => (/^[A-Z0-9]+$/.test(w) ? w : w.toLowerCase())).join(" ");
+}
+
+/**
+ * The dates the model needs: today and a week either side, written out, because models
+ * get weekday arithmetic wrong.
+ * Args: now — the current time.
+ * Returns: e.g. "Today is Sunday 25 October 2026. Past days: Saturday 24 October, …. Coming days: Monday 26 October, …".
+ */
+export function calendar(now = new Date()): string {
+  const day = (d: Date, year: boolean) =>
+    d.toLocaleDateString("en-GB", { weekday: "long", day: "numeric", month: "long", ...(year ? { year: "numeric" } : {}), timeZone: "UTC" }).replace(",", "");
+  const around = (sign: number) =>
+    Array.from({ length: 7 }, (_, i) => day(new Date(now.getTime() + sign * (i + 1) * 86_400_000), false)).join(", ");
+  return `Today is ${day(now, true)}. Past days: ${around(-1)}. Coming days: ${around(1)}.`;
 }

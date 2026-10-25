@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { checkPurpose, parsePlanResult, planCall, PlannerError } from "../src/plan";
+import { checkPurpose, parsePlanResult, planCall, PlannerError, roleCase, sentenceCase } from "../src/plan";
 
 const PLAN = {
   agent: { name: "Maya", company: "Parcelly", role: "customer care" },
@@ -74,10 +74,12 @@ describe("planCall", () => {
       sent = JSON.parse(init.body as string);
       return new Response(JSON.stringify({ choices: [{ message: { content: JSON.stringify({ status: "refused", reason: "No." }) } }] }));
     }) as unknown as typeof fetch;
-    await planCall("call my landlord", opts(f));
+    await planCall("call my landlord", { ...opts(f), now: new Date("2026-10-25T09:00:00Z") });
     expect(sent.model).toBe("m");
     expect(sent.response_format).toEqual({ type: "json_object" });
     expect(sent.messages.at(-1).content).toContain("call my landlord");
+    expect(sent.messages.at(-1).content).toContain("Today is Sunday 25 October 2026. Past days: Saturday 24 October, Friday 23 October,");
+    expect(sent.messages.at(-1).content).toContain("Coming days: Monday 26 October, Tuesday 27 October,");
   });
   it("throws PlannerError on HTTP errors, bad JSON and network failures", async () => {
     await expect(planCall("x", opts(groq("{}", 500)))).rejects.toThrow(PlannerError);
@@ -85,4 +87,28 @@ describe("planCall", () => {
     const down = (async () => { throw new Error("offline"); }) as unknown as typeof fetch;
     await expect(planCall("x", opts(down))).rejects.toThrow(PlannerError);
   });
+});
+
+describe("sentenceCase", () => {
+  it.each([
+    ["New Delivery Date", "New delivery date"],
+    ["Order Number", "Order number"],
+    ["SKU Code", "SKU code"],
+    ["New day", "New day"],
+    ["Notes", "Notes"],
+    ["Notes for the driver", "Notes for the driver"],
+  ])("%s → %s", (input, out) => expect(sentenceCase(input)).toBe(out));
+  it("is applied to plan labels", () => {
+    const r = parsePlanResult({ status: "planned", plan: { ...PLAN, fields: [{ key: "a", label: "Order Number" }] } });
+    expect(r.status === "planned" && r.plan.fields[0].label).toBe("Order number");
+  });
+});
+
+describe("roleCase", () => {
+  it.each([
+    ["Delivery Coordinator", "delivery coordinator"],
+    ["HR Manager", "HR manager"],
+    ["front desk assistant", "front desk assistant"],
+    ["Recruiter", "recruiter"],
+  ])("%s → %s", (input, out) => expect(roleCase(input)).toBe(out));
 });

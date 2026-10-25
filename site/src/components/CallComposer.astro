@@ -1,7 +1,8 @@
 ---
 // "Describe the call" box. The three examples fill the box and show their ready-made
-// call plan. Custom purposes need the demo backend (DEMO.md); until it ships, submitting
-// one explains that, and keeps what the visitor typed.
+// call plan. Anything else goes to the planner (demo/worker POST /plans) when this
+// build has a demo backend; without one, submitting explains that live planning
+// opens soon, and keeps what the visitor typed.
 // Props: `examples` shows the three use-case chips and their plans (the homepage);
 // `ideas` are other purposes that only fill the box, for pages that list the use cases
 // already and want starting points that aren't repeats.
@@ -50,9 +51,27 @@ const { examples = true, ideas = [] } = Astro.props;
     </div>
   )}
 
-  <p class="composer-notice" data-notice hidden>
-    Planning your own call opens with the live demo, soon. Meanwhile, {examples ? "try one of the examples" : "see how the use cases above go in their sample calls"}.
-  </p>
+  <p class="composer-status" data-status aria-live="polite"></p>
+  <p class="composer-notice" data-notice hidden data-offline-text={`Planning your own call opens with the live demo, soon. Meanwhile, ${examples ? "try one of the examples" : "see how the use cases above go in their sample calls"}.`}></p>
+
+  <section class="plan" data-plan="custom" hidden aria-label="Call plan: your call">
+    <div class="plan-head">
+      <span class="plan-title">Here’s the plan</span>
+      <span class="wd-badge">Your call</span>
+    </div>
+    <dl class="plan-grid">
+      <div><dt>The agent</dt><dd data-slot="agent"></dd></div>
+      <div><dt>Opens with</dt><dd data-slot="opens"></dd></div>
+      <div><dt>Goal</dt><dd data-slot="goal"></dd></div>
+      <div><dt>Writes down</dt><dd><ul class="plan-fields" data-slot="fields"></ul></dd></div>
+      <div><dt>Made up for the call</dt><dd><ul class="plan-facts" data-slot="facts"></ul></dd></div>
+      <div><dt>You play</dt><dd data-slot="brief"></dd></div>
+    </dl>
+    <div class="plan-actions">
+      <button class="wd-btn wd-btn--primary" type="button" disabled>Start the call</button>
+    </div>
+    <p class="plan-note" data-slot="note"></p>
+  </section>
 
   {examples && USE_CASES.map((u) => (
     <section class="plan" data-plan={u.slug} data-purpose={u.purpose} hidden aria-label={`Call plan: ${u.title}`}>
@@ -77,19 +96,30 @@ const { examples = true, ideas = [] } = Astro.props;
 </div>
 
 <script>
+  import { DemoError, demoEnabled, planCall, type Plan } from "../demo/client";
+
   for (const root of document.querySelectorAll<HTMLElement>("[data-composer]")) {
     const form = root.querySelector("form")!;
     const box = root.querySelector<HTMLTextAreaElement>("textarea")!;
     const count = root.querySelector<HTMLElement>("[data-count]")!;
     const notice = root.querySelector<HTMLElement>("[data-notice]")!;
-    const plans = [...root.querySelectorAll<HTMLElement>("[data-plan]")];
+    const status = root.querySelector<HTMLElement>("[data-status]")!;
+    const go = root.querySelector<HTMLButtonElement>(".composer-go")!;
+    const custom = root.querySelector<HTMLElement>('[data-plan="custom"]')!;
+    const plans = [...root.querySelectorAll<HTMLElement>("[data-plan]:not([data-plan=custom])")];
+    let planned = ""; // the purpose the custom plan was made for
     const chips = [...root.querySelectorAll<HTMLButtonElement>("[data-example]")];
     const ideas = [...root.querySelectorAll<HTMLButtonElement>("[data-idea]")];
 
     const show = (slug: string | null) => {
       for (const p of plans) p.hidden = p.dataset.plan !== slug;
+      custom.hidden = slug !== "custom";
       for (const c of chips) c.setAttribute("aria-pressed", String(c.dataset.example === slug));
       notice.hidden = true;
+    };
+    const tell = (message: string) => {
+      notice.textContent = message;
+      notice.hidden = false;
     };
     const updateCount = () => (count.textContent = String(box.value.length));
     const matching = () => plans.find((p) => p.dataset.purpose === box.value.trim())?.dataset.plan ?? null;
@@ -118,19 +148,64 @@ const { examples = true, ideas = [] } = Astro.props;
       for (const i of ideas) i.setAttribute("aria-pressed", "false");
       updateCount();
       // Editing an example's text turns it into a custom purpose: hide the ready-made plan.
-      if (!matching()) show(null);
+      if (!matching() && box.value.trim() !== planned) show(null);
     });
 
-    form.addEventListener("submit", (e) => {
+    form.addEventListener("submit", async (e) => {
       e.preventDefault();
       const slug = matching();
       if (slug) return show(slug);
       show(null);
-      if (!box.value.trim()) {
+      const purpose = box.value.trim();
+      if (!purpose) {
         box.focus();
         return;
       }
-      notice.hidden = false;
+      if (!demoEnabled) return tell(notice.dataset.offlineText ?? "");
+      if (purpose === planned) return show("custom");
+
+      go.disabled = true;
+      go.setAttribute("aria-busy", "true");
+      status.textContent = "Planning your call…";
+      try {
+        const res = await planCall(purpose);
+        if (res.status === "refused") {
+          tell(`We can't plan that call. ${res.reason}`);
+        } else {
+          fill(custom, res.plan, res.plans_left);
+          planned = purpose;
+          show("custom");
+          custom.scrollIntoView({ block: "nearest", behavior: matchMedia("(prefers-reduced-motion: reduce)").matches ? "auto" : "smooth" });
+        }
+      } catch (e) {
+        tell(e instanceof DemoError ? e.message : "Something went wrong. Try again in a moment.");
+      } finally {
+        go.disabled = false;
+        go.removeAttribute("aria-busy");
+        status.textContent = "";
+      }
     });
+  }
+
+  /**
+   * Puts a planner's plan into the custom plan card. Everything is set as text,
+   * never HTML: it comes from a model.
+   * Args: card — the custom plan section; plan — from POST /plans; left — plans left today.
+   */
+  function fill(card: HTMLElement, plan: Plan, left: number) {
+    const slot = (name: string) => card.querySelector<HTMLElement>(`[data-slot="${name}"]`)!;
+    slot("agent").textContent = `${plan.agent.name}, ${plan.agent.role} at ${plan.agent.company}`;
+    slot("opens").textContent = `“${plan.firstMessage}”`;
+    slot("goal").textContent = plan.goal;
+    slot("brief").textContent = plan.brief;
+    const list = (name: string, items: string[]) => {
+      const ul = slot(name);
+      ul.replaceChildren(...items.map((t) => Object.assign(document.createElement("li"), { textContent: t })));
+      ul.closest("div")!.hidden = items.length === 0;
+    };
+    list("fields", plan.fields.map((f) => f.label));
+    list("facts", Object.entries(plan.assumptions).map(([k, v]) => `${k.replace(/_/g, " ")}: ${v}`));
+    slot("note").textContent =
+      `Live calls in your browser open soon. ${left === 1 ? "1 plan" : `${left} plans`} left today.`;
   }
 </script>
