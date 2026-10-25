@@ -61,3 +61,18 @@ curl localhost:8100/healthz             # {"status":"ok"}
   are stored only encrypted (checked: no raw key appears in a full dump).
 - Local dashboard against it: `VITE_API_URL=http://localhost:8100` in `dashboard/.env`,
   then `npx vite --port 5173` in `dashboard/`.
+
+## Deployed (milestone 3)
+
+| Address | What | How it's served |
+| --- | --- | --- |
+| `https://app.offhook.welldun.ai` | Dashboard | Cloudflare Worker `offhook-dashboard` (static assets, SPA fallback); `cd dashboard && npm run build && npx wrangler deploy` |
+| `https://api.offhook.welldun.ai` | API (and carrier callbacks) | Tunnel `offhook-voice` → `host.docker.internal:8100` on the Mac |
+| `https://clerk.app.offhook.welldun.ai` | Sign-in | Clerk production instance "Offhook", allowlist on |
+
+- The API accepts browser requests only from the dashboard (`CORS_ORIGINS`), and
+  every request needs a Clerk session or an API key.
+- `PUBLIC_BASE_URL=https://api.offhook.welldun.ai`, so Twilio and Plivo can reach the
+  call webhooks through the tunnel.
+- To let someone in: add their email to the Clerk allowlist (Clerk dashboard →
+  Restrictions). Their first sign-in creates their workspace.
