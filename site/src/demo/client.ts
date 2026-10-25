@@ -66,21 +66,66 @@ export async function startSession(request: { use_case: string } | { plan: Plan 
   return post<SessionStart>("/sessions", { ...request, turnstile_token: await turnstileToken() });
 }
 
+export interface SessionResult {
+  session_id: string;
+  status: "created" | "live" | "completed" | "failed" | "expired";
+  end_reason: string | null;
+  transcript: { who: "agent" | "person"; text: string; at_ms: number }[];
+  outcome: Record<string, string | number | boolean | null>;
+  summary: string | null;
+  latency: number[];
+}
+
+/**
+ * Waits for a finished call's results. The voice server reports them a moment
+ * after the socket closes, so this polls briefly.
+ * Args: id — the session ID; tries — how many times to ask, a second apart.
+ * Returns: the session once it's completed or failed, or the last answer.
+ */
+export async function waitForResults(id: string, tries = 10): Promise<SessionResult> {
+  let last: SessionResult | null = null;
+  for (let i = 0; i < tries; i++) {
+    last = await get<SessionResult>(`/sessions/${id}`);
+    if (last.status === "completed" || last.status === "failed") return last;
+    await new Promise((r) => setTimeout(r, 1000));
+  }
+  if (!last) throw new DemoError("unknown", "We couldn't load how the call went.");
+  return last;
+}
+
+/**
+ * Joins the hosted Offhook waitlist.
+ * Args: entry — email, and optionally company and use case.
+ * Throws DemoError with a message for the visitor.
+ */
+export async function joinWaitlist(entry: { email: string; company?: string; use_case?: string }): Promise<void> {
+  await post("/waitlist", { ...entry, turnstile_token: await turnstileToken() });
+}
+
+/** GETs JSON from the demo API with the visitor cookie. */
+async function get<T>(path: string): Promise<T> {
+  return request<T>(path, { method: "GET" });
+}
+
 /**
  * POSTs JSON to the demo API with the visitor cookie.
  * Args: path — e.g. "/plans"; body — the JSON body.
  * Returns: the parsed response. Throws DemoError with the API's message on failure.
  */
 async function post<T>(path: string, body: unknown): Promise<T> {
+  return request<T>(path, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(body) });
+}
+
+/**
+ * Calls the demo API.
+ * Args: path — e.g. "/plans"; init — the fetch options.
+ * Returns: the parsed response. Throws DemoError with the API's message on failure.
+ */
+async function request<T>(path: string, init: RequestInit): Promise<T> {
   if (!DEMO_API) throw new DemoError("disabled", "The live demo isn't available here.");
   let res: Response;
   try {
-    res = await fetch(DEMO_API + path, {
-      method: "POST",
-      credentials: "include",
-      headers: { "content-type": "application/json" },
-      body: JSON.stringify(body),
-    });
+    res = await fetch(DEMO_API + path, { ...init, credentials: "include" });
   } catch {
     throw new DemoError("network", "We couldn't reach the demo. Check your connection and try again.");
   }

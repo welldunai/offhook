@@ -43,8 +43,29 @@ const WAVE = [8, 14, 20, 12, 24, 16, 10, 22, 18, 12, 26, 14, 9, 20, 16, 24, 11, 
         <ul class="wd-bubbles call-bubbles" data-slot="bubbles" aria-label="Transcript" aria-live="polite"></ul>
       </div>
       <div class="call-written" data-slot="written" hidden>
-        <p class="wd-label">Written down so far</p>
+        <p class="wd-label" data-slot="written-label">Written down so far</p>
         <div class="wd-results" data-slot="results"></div>
+      </div>
+      <div class="call-after" data-slot="after" hidden>
+        <div class="call-summary" data-slot="summary-box" hidden>
+          <p class="wd-label">The agent's summary</p>
+          <p data-slot="summary"></p>
+        </div>
+        <p class="call-timing" data-slot="timing" hidden></p>
+        <div class="call-next">
+          <h3 class="call-next-title">Want Offhook making your calls?</h3>
+          <p>Join the list for hosted Offhook, or run it yourself on your own keys.</p>
+          <form class="call-waitlist" data-waitlist novalidate>
+            <label class="sr-only" for="wl-email">Work email</label>
+            <input id="wl-email" name="email" type="email" autocomplete="email" placeholder="you@company.com" required maxlength="254" />
+            <label class="sr-only" for="wl-company">Company (optional)</label>
+            <input id="wl-company" name="company" type="text" autocomplete="organization" placeholder="Company (optional)" maxlength="100" />
+            <button class="wd-btn wd-btn--primary" type="submit">Join the list</button>
+          </form>
+          <p class="call-waitlist-msg" data-slot="waitlist-msg" role="status" hidden></p>
+          <a class="call-diy" href="/docs/quickstart/">Run it yourself <span class="wd-arrow" aria-hidden="true">→</span></a>
+        </div>
+        <p class="call-left" data-slot="left"></p>
       </div>
       <p class="call-problem" data-slot="call-problem" role="alert" hidden></p>
       <div class="call-actions">
@@ -55,7 +76,7 @@ const WAVE = [8, 14, 20, 12, 24, 16, 10, 22, 18, 12, 26, 14, 9, 20, 16, 24, 11, 
 </dialog>
 
 <script>
-  import { DemoError, startSession, type Plan, type PlanField } from "../demo/client";
+  import { DemoError, joinWaitlist, startSession, waitForResults, type Plan, type PlanField, type SessionResult } from "../demo/client";
   import { LiveCall, prepareAudio } from "../demo/call";
 
   /** What a "Start the call" button sends. */
@@ -88,11 +109,16 @@ const WAVE = [8, 14, 20, 12, 24, 16, 10, 22, 18, 12, 26, 14, 9, 20, 16, 24, 11, 
 
     let current: CallRequest | null = null;
     let call: LiveCall | null = null;
+    let sessionId = "";
+    let callsLeft = 0;
     let timer = 0;
     let wave = 0;
 
     document.addEventListener("offhook:call", (e) => {
       current = (e as CustomEvent<CallRequest>).detail;
+      waitlist.hidden = false;
+      waitlist.reset();
+      slot("waitlist-msg").hidden = true;
       const a = current.agent;
       slot("title").textContent = `Talk to ${a.name} from ${a.company}`;
       slot("brief").textContent = current.brief;
@@ -120,6 +146,8 @@ const WAVE = [8, 14, 20, 12, 24, 16, 10, 22, 18, 12, 26, 14, 9, 20, 16, 24, 11, 
       try {
         go.textContent = "Connecting…";
         const session = await startSession(current.request);
+        sessionId = session.session_id;
+        callsLeft = session.calls_left;
         begin(session.max_seconds, current);
         call = new LiveCall(session, prepared, {
           onLive: () => live(session.max_seconds),
@@ -151,6 +179,8 @@ const WAVE = [8, 14, 20, 12, 24, 16, 10, 22, 18, 12, 26, 14, 9, 20, 16, 24, 11, 
       slot("bubbles").replaceChildren();
       slot("results").replaceChildren();
       slot("written").hidden = true;
+      slot("written-label").textContent = "Written down so far";
+      slot("after").hidden = true;
       problem("call-problem", null);
       hangup.hidden = false;
       hangup.textContent = "Hang up";
@@ -203,7 +233,8 @@ const WAVE = [8, 14, 20, 12, 24, 16, 10, 22, 18, 12, 26, 14, 9, 20, 16, 24, 11, 
         tile.append(Object.assign(document.createElement("span"), { textContent: field.label }), document.createElement("strong"));
         box.append(tile);
       }
-      tile.querySelector("strong")!.textContent = shown(value);
+      tile.querySelector("strong")!.textContent = value === "" ? "Not recorded" : shown(value);
+      tile.classList.toggle("wd-result--empty", value === "");
       slot("written").hidden = false;
     }
 
@@ -221,7 +252,62 @@ const WAVE = [8, 14, 20, 12, 24, 16, 10, 22, 18, 12, 26, 14, 9, 20, 16, 24, 11, 
       }
       slot("meta").textContent = ENDED[reason ?? ""] ?? "The call has ended.";
       hangup.hidden = true;
+      void showResults();
     }
+
+    /** After the call: the stored results (the source of truth), summary, timing and next steps. */
+    async function showResults() {
+      const req = current!;
+      slot("left").textContent =
+        callsLeft > 0 ? `You have ${callsLeft === 1 ? "1 more call" : `${callsLeft} more calls`} today.` : "That was your last demo call today.";
+      slot("after").hidden = false;
+      let res: SessionResult;
+      try {
+        res = await waitForResults(sessionId);
+      } catch {
+        return; // the live answers stay on screen
+      }
+      slot("written-label").textContent = `What ${req.agent.name} wrote down`;
+      slot("results").replaceChildren();
+      for (const f of req.fields) result(req.fields, f.key, f.key in res.outcome ? res.outcome[f.key] : "");
+      slot("written").hidden = false;
+      if (res.summary) {
+        slot("summary").textContent = res.summary;
+        slot("summary-box").hidden = false;
+      }
+      if (res.latency.length) {
+        const sorted = [...res.latency].sort((a, b) => a - b);
+        const median = sorted[Math.floor(sorted.length / 2)] / 1000;
+        slot("timing").textContent = `${req.agent.name} replied in ${median.toFixed(1)} seconds on a typical turn (${res.latency.map((ms) => (ms / 1000).toFixed(1)).join(", ")} s), counted from when you stopped talking.`;
+        slot("timing").hidden = false;
+      }
+    }
+
+    // Waitlist (after a call)
+    const waitlist = dialog.querySelector<HTMLFormElement>("[data-waitlist]")!;
+    waitlist.addEventListener("submit", async (e) => {
+      e.preventDefault();
+      const email = (waitlist.elements.namedItem("email") as HTMLInputElement).value.trim();
+      const company = (waitlist.elements.namedItem("company") as HTMLInputElement).value.trim();
+      const msg = slot("waitlist-msg");
+      if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+        msg.textContent = "Enter a valid email address.";
+        msg.hidden = false;
+        return;
+      }
+      const button = waitlist.querySelector("button")!;
+      button.disabled = true;
+      try {
+        const useCase = current && "use_case" in current.request ? current.request.use_case : "custom";
+        await joinWaitlist({ email, company: company || undefined, use_case: useCase });
+        waitlist.hidden = true;
+        msg.textContent = "You're on the list. We'll email you when hosted Offhook opens.";
+      } catch (err) {
+        msg.textContent = err instanceof DemoError ? err.message : "Something went wrong. Try again in a moment.";
+        button.disabled = false;
+      }
+      msg.hidden = false;
+    });
 
     function status(kind: "dialing" | "live" | "done" | "failed", text: string) {
       slot("status").className = `wd-status wd-status--${kind}`;
