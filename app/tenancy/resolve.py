@@ -22,6 +22,7 @@ from fastapi import HTTPException
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.config import ResolvedCreds, VoiceConfig
+from app.settings import settings as app_settings
 from app.crypto.envelope import decrypt_secret, get_or_create_tenant_dek
 from app.db import repositories as repo
 from app.db.models import Agent
@@ -86,6 +87,27 @@ async def _resolve_leg(
     return ResolvedCreds(provider_name=conn.provider_name, secrets=secrets, settings=settings)
 
 
+def _managed_leg(leg: str, settings: dict) -> ResolvedCreds | None:
+    """Offhook's own credentials for a leg the agent left empty, if this server has them.
+
+    Args:
+        leg: "stt", "tts" or "llm".
+        settings: The agent's non-secret settings for the leg (model, voice, …).
+
+    Returns:
+        Resolved credentials, or None if Offhook doesn't supply this leg here.
+    """
+    provider = app_settings.managed_provider(leg)
+    if provider == "deepgram":
+        return ResolvedCreds("deepgram", {"api_key": app_settings.platform_deepgram_api_key}, settings)
+    if provider == "cartesia":
+        secrets = {"api_key": app_settings.platform_cartesia_api_key, "voice_id": app_settings.platform_cartesia_voice_id}
+        return ResolvedCreds("cartesia", secrets, settings)
+    if provider == "groq":
+        return ResolvedCreds("groq", {"api_key": app_settings.platform_groq_api_key}, settings)
+    return None
+
+
 async def _build_voice_config(
     db: AsyncSession,
     tenant_id: uuid.UUID,
@@ -95,16 +117,26 @@ async def _build_voice_config(
     need_telephony: bool,
     language: str = "en",
 ) -> VoiceConfig:
+    # An empty stt/tts/llm connection means "use Offhook's" (settings.PLATFORM_*).
+    managed = {}
     for leg in ("stt", "tts", "llm"):
         if not conn_ids.get(leg):
-            raise HTTPException(status_code=409, detail=f"agent has no {leg} connection")
+            managed[leg] = _managed_leg(leg, settings.get(leg, {}))
+            if managed[leg] is None:
+                raise HTTPException(status_code=409, detail=f"agent has no {leg} connection")
     if need_telephony and not conn_ids.get("telephony"):
         raise HTTPException(status_code=409, detail="agent has no telephony connection")
 
     dek = await get_or_create_tenant_dek(db, tenant_id)
-    stt = await _resolve_leg(db, tenant_id, dek, conn_ids["stt"], settings.get("stt", {}), "stt")
-    tts = await _resolve_leg(db, tenant_id, dek, conn_ids["tts"], settings.get("tts", {}), "tts")
-    llm = await _resolve_leg(db, tenant_id, dek, conn_ids["llm"], settings.get("llm", {}), "llm")
+
+    async def leg_creds(leg: str) -> ResolvedCreds:
+        if leg in managed:
+            return managed[leg]
+        return await _resolve_leg(db, tenant_id, dek, conn_ids[leg], settings.get(leg, {}), leg)
+
+    stt = await leg_creds("stt")
+    tts = await leg_creds("tts")
+    llm = await leg_creds("llm")
     telephony = None
     if conn_ids.get("telephony"):
         telephony = await _resolve_leg(

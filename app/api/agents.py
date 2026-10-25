@@ -12,6 +12,7 @@ from app.auth.dependencies import TenantContext, require_tenant
 from app.db import repositories as repo
 from app.db.engine import get_session
 from app.db.models import Agent
+from app.settings import settings
 
 router = APIRouter(prefix="/agents", tags=["agents"])
 
@@ -43,6 +44,12 @@ async def create_agent(
     await _validate_connection(db, ctx.tenant_id, body.stt_connection_id, "stt")
     await _validate_connection(db, ctx.tenant_id, body.tts_connection_id, "tts")
     await _validate_connection(db, ctx.tenant_id, body.llm_connection_id, "llm")
+    for leg in ("stt", "tts", "llm"):
+        if getattr(body, f"{leg}_connection_id") is None and settings.managed_provider(leg) is None:
+            raise HTTPException(
+                status_code=422,
+                detail=f"choose a {leg} connection (this server doesn't offer Offhook's own {leg})",
+            )
     await _validate_connection(db, ctx.tenant_id, body.telephony_connection_id, "telephony")
 
     # Every referenced tool must belong to this tenant.

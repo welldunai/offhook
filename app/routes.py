@@ -80,6 +80,8 @@ async def list_providers(_: TenantContext = Depends(require_tenant)) -> dict[str
         "llm": llm_registry.names(),
         "telephony": telephony.telephony_registry.names(),
         "supported": {k: sorted(v) for k, v in SUPPORTED_PROVIDERS.items()},
+        # What Offhook supplies itself when an agent leaves a leg empty (None: bring your own).
+        "managed": {leg: settings.managed_provider(leg) for leg in ("stt", "tts", "llm")},
     }
 
 

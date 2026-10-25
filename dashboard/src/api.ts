@@ -150,7 +150,10 @@ export interface Usage {
   total_seconds: number;
   call_count: number;
 }
-export type Providers = Record<string, string[] | Record<string, string[]>>;
+export type Providers = Record<string, string[] | Record<string, string[]>> & {
+  /** What Offhook supplies itself for each leg when an agent leaves it empty (null: bring your own). */
+  managed?: { stt: string | null; tts: string | null; llm: string | null };
+};
 
 const qs = (p: Record<string, string | number | undefined>) => {
   const s = new URLSearchParams();

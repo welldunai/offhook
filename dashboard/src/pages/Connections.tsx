@@ -21,7 +21,7 @@ export default function Connections() {
   }
 
   return (
-    <Page title="Connections" sub="Bring your own provider keys — stored encrypted, never shown again."
+    <Page title="Connections" sub="Your own provider keys, stored encrypted and never shown again. Optional for speech, voice and the language model: agents can use Offhook's instead. A phone line needs your own Twilio or Plivo."
       actions={<button className="btn btn-primary" onClick={() => setOpen(true)}><Icon name="plus" size={15} /> New connection</button>}>
       <div className="card">
         {conns.loading ? <Spinner /> : !conns.data?.length ? (

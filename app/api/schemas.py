@@ -56,9 +56,10 @@ class AgentCreate(BaseModel):
     first_message: str | None = None
     voice_id: str | None = None
     llm_model: str | None = None
-    stt_connection_id: uuid.UUID
-    tts_connection_id: uuid.UUID
-    llm_connection_id: uuid.UUID
+    # Leave stt/tts/llm empty to use Offhook's own providers (where the server offers them).
+    stt_connection_id: uuid.UUID | None = None
+    tts_connection_id: uuid.UUID | None = None
+    llm_connection_id: uuid.UUID | None = None
     telephony_connection_id: uuid.UUID | None = None
     provider_settings: dict[str, Any] = Field(default_factory=dict)
     # Custom HTTP tools the agent may call. Ownership validated server-side.

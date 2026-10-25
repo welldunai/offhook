@@ -66,6 +66,25 @@ class Settings(BaseSettings):
             return self.clerk_issuer.rstrip("/") + "/.well-known/jwks.json"
         return None
 
+    # ---- Offhook's own providers ("managed") ----
+    # Workspaces that don't bring their own STT/TTS/LLM keys use these: an agent
+    # whose stt/tts/llm connection is left empty runs on Offhook's account. Unset
+    # a key to make that leg bring-your-own only.
+    platform_deepgram_api_key: str | None = Field(default=None, alias="PLATFORM_DEEPGRAM_API_KEY")
+    platform_cartesia_api_key: str | None = Field(default=None, alias="PLATFORM_CARTESIA_API_KEY")
+    platform_cartesia_voice_id: str | None = Field(default=None, alias="PLATFORM_CARTESIA_VOICE_ID")
+    platform_groq_api_key: str | None = Field(default=None, alias="PLATFORM_GROQ_API_KEY")
+
+    def managed_provider(self, leg: str) -> str | None:
+        """Return the provider Offhook supplies for ``leg`` ("stt", "tts", "llm"), or None."""
+        if leg == "stt" and self.platform_deepgram_api_key:
+            return "deepgram"
+        if leg == "tts" and self.platform_cartesia_api_key and self.platform_cartesia_voice_id:
+            return "cartesia"
+        if leg == "llm" and self.platform_groq_api_key:
+            return "groq"
+        return None
+
     # ---- Telephony / public callbacks ----
     # The externally reachable base URL carriers call back on. In prod this is
     # required and we never trust request headers (x-forwarded-host) to derive it.

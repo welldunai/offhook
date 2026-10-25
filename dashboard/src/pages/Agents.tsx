@@ -8,6 +8,7 @@ export default function Agents() {
   const agents = useAsync(() => api.agents(), []);
   const conns = useAsync(() => api.connections(), []);
   const tools = useAsync(() => api.tools(), []);
+  const providers = useAsync(() => api.providers(), []);
   const [open, setOpen] = useState(false);
   const [talking, setTalking] = useState<Agent | null>(null);
   const toast = useToast();
@@ -49,7 +50,7 @@ export default function Agents() {
         )}
       </div>
       {talking && <TalkModal agent={talking} onClose={() => setTalking(null)} />}
-      {open && <CreateModal conns={conns.data || []} tools={tools.data || []} onClose={() => setOpen(false)} onDone={() => { setOpen(false); agents.reload(); }} />}
+      {open && <CreateModal conns={conns.data || []} tools={tools.data || []} managed={providers.data?.managed} onClose={() => setOpen(false)} onDone={() => { setOpen(false); agents.reload(); }} />}
     </Page>
   );
 }
@@ -65,16 +66,38 @@ const MODEL_SUGGESTIONS: Record<string, string[]> = {
   openai: ["gpt-4o-mini", "gpt-4o"],
 };
 
-function CreateModal({ conns, tools, onClose, onDone }: { conns: Connection[]; tools: Tool[]; onClose: () => void; onDone: () => void }) {
+/** The value a picker uses for "Offhook's own provider" (sent to the API as no connection). */
+const OFFHOOK = "offhook";
+
+const LEG_LABEL: Record<string, string> = {
+  stt: "Speech to text",
+  tts: "Voice",
+  llm: "Language model",
+  telephony: "Phone line (for phone calls)",
+};
+const PROVIDER_NAME: Record<string, string> = { deepgram: "Deepgram", cartesia: "Cartesia", groq: "Groq" };
+
+function CreateModal({ conns, tools, managed, onClose, onDone }: {
+  conns: Connection[]; tools: Tool[]; managed?: { stt: string | null; tts: string | null; llm: string | null };
+  onClose: () => void; onDone: () => void;
+}) {
   const [f, setF] = useState({ name: "", company: "", instructions: "", first_message: "", voice_id: "", llm_model: "" });
-  const [sel, setSel] = useState<Record<string, string>>({});
+  // Offhook's providers are picked by default for any leg the workspace has no keys for.
+  const [sel, setSel] = useState<Record<string, string>>(() => {
+    const start: Record<string, string> = {};
+    for (const leg of ["stt", "tts", "llm"] as const) {
+      if (managed?.[leg] && !conns.some((c) => c.provider_kind === leg)) start[leg] = OFFHOOK;
+    }
+    return start;
+  });
   const [toolIds, setToolIds] = useState<string[]>([]);
   const [busy, setBusy] = useState(false);
   const toast = useToast();
 
   const byKind = (k: string) => conns.filter((c) => c.provider_kind === k);
   const set = (k: string, v: string) => setF((s) => ({ ...s, [k]: v }));
-  const llmProvider = conns.find((c) => c.id === sel.llm)?.provider_name;
+  const llmProvider = sel.llm === OFFHOOK ? managed?.llm ?? undefined : conns.find((c) => c.id === sel.llm)?.provider_name;
+  const connId = (leg: string) => (sel[leg] === OFFHOOK ? null : sel[leg]);
   const toggleTool = (id: string) =>
     setToolIds((ids) => (ids.includes(id) ? ids.filter((x) => x !== id) : [...ids, id]));
 
@@ -85,7 +108,7 @@ function CreateModal({ conns, tools, onClose, onDone }: { conns: Connection[]; t
         name: f.name, company: f.company || null, instructions: f.instructions,
         first_message: f.first_message || null, voice_id: f.voice_id || null,
         llm_model: f.llm_model.trim() || null,
-        stt_connection_id: sel.stt, tts_connection_id: sel.tts, llm_connection_id: sel.llm,
+        stt_connection_id: connId("stt"), tts_connection_id: connId("tts"), llm_connection_id: connId("llm"),
         telephony_connection_id: sel.telephony || null,
         tool_ids: toolIds,
       });
@@ -110,14 +133,20 @@ function CreateModal({ conns, tools, onClose, onDone }: { conns: Connection[]; t
       <Field label="First message"><input className="input" value={f.first_message} onChange={(e) => set("first_message", e.target.value)} placeholder="Hi, this is Alex from Acme…" /></Field>
       {(["stt", "tts", "llm", "telephony"] as const).map((k) => (
         <div key={k}>
-          <Field label={`${k.toUpperCase()} connection${k === "telephony" ? " (for phone calls)" : ""}`}>
+          <Field label={LEG_LABEL[k]}
+            hint={k !== "telephony" && sel[k] === OFFHOOK ? "Offhook's account, free for now. Or pick your own connection." : undefined}>
             <Select value={sel[k] || ""} onChange={(v) => setSel((s) => ({ ...s, [k]: v }))}
-              placeholder="— select —"
-              emptyText={`No ${k} connections — add one first`}
-              options={byKind(k).map((c) => ({ value: c.id, label: `${c.name} (${c.provider_name})` }))} />
+              placeholder="Choose…"
+              emptyText={`No ${k === "telephony" ? "phone line" : LEG_LABEL[k].toLowerCase()} connections yet. Add one on Connections.`}
+              options={[
+                ...(k !== "telephony" && managed?.[k]
+                  ? [{ value: OFFHOOK, label: `Offhook's ${PROVIDER_NAME[managed[k]!] ?? managed[k]} (free)` }]
+                  : []),
+                ...byKind(k).map((c) => ({ value: c.id, label: `${c.name} (${c.provider_name})` })),
+              ]} />
           </Field>
           {k === "llm" && (
-            <Field label="LLM model"
+            <Field label="Model"
               hint={llmProvider ? `Leave blank to use the default: ${MODEL_DEFAULTS[llmProvider] || "provider default"}` : "Optional — defaults to the provider's model."}>
               <input className="input mono" value={f.llm_model} onChange={(e) => set("llm_model", e.target.value)}
                 placeholder={llmProvider ? MODEL_DEFAULTS[llmProvider] || "model name" : "select an LLM connection first"} />
