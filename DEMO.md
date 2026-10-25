@@ -28,23 +28,45 @@ Each use case is a fixed agent configuration plus a short brief for the visitor.
 
 The company names are fictional and shown as such.
 
-### Writing your own case
+### Your own call, in plain English
 
-A form with: agent name, company, what the agent should achieve (instructions), its opening line, facts it knows (key/value context), and up to five fields to record. Limits: instructions up to 1,500 characters, opening line up to 200, at most ten context facts and five fields. Custom agents get only the built-in `record_result` and `end_call` tools; no HTTP tools.
+The visitor types what the call is for in one box, the same way they'd brief a colleague, for example: "Call customers who missed a delivery yesterday, find a new delivery day and note any instructions for the driver." Up to 500 characters.
+
+A **planner** turns that into a call plan:
+
+- the agent's name, company (made up unless given) and role;
+- its instructions and opening line;
+- the facts it assumes for this call (e.g. the missed delivery date), labelled as assumptions;
+- up to five fields to record, with a label for each;
+- a short brief for the visitor, who plays the person being called.
+
+The plan is shown before the call starts, and every part of it can be edited. Custom agents get only the built-in `record_result` and `end_call` tools; no HTTP tools.
+
+The planner is one request from the Worker to Groq, asking for JSON in a fixed schema. It runs on Cloudflare, so planning works even when the voice server is offline. It refuses, with a short reason, purposes that are:
+
+- scams or deception (pretending to be a real bank, government body, delivery company or named person);
+- attempts to collect passwords, one-time codes or card numbers;
+- harassment or threats;
+- political or election calls;
+- anything the model provider's usage policy forbids.
+
+The three launch use cases are simply ready-made plans, so the examples and custom purposes go through the same flow.
 
 ## The visitor's flow
 
-1. **Choose** a use case card, or "Write your own".
-2. **Brief:** who you are in this call and what the agent is trying to do ("You're the candidate. You're interested but have a 60-day notice period.").
-3. **Start call:** Turnstile check, then the browser asks for the microphone and shows "Connecting…". A two-minute countdown runs; the agent speaks first.
-4. **Live view:** the transcript appears as you talk, and the call status moves from connecting to in progress to completed.
-5. **Results:** the full transcript, the recorded fields as a small table, the agent's summary, and its response time on each turn.
-6. **Next:** "Join the waitlist for hosted Offhook" (email, company, which use case) and "Run it yourself" (docs).
+1. **Describe** the call in the box on the homepage, or pick one of the three examples, which fills the box in.
+2. **Plan:** see the call plan (who the agent is, what it asks, what it records) and edit anything.
+3. **Brief:** who you are in this call and what the agent is trying to do ("You're the candidate. You're interested but have a 60-day notice period.").
+4. **Start call:** Turnstile check, then the browser asks for the microphone and shows "Connecting…". A two-minute countdown runs; the agent speaks first.
+5. **Live view:** the transcript appears as you talk, and the call status moves from connecting to in progress to completed.
+6. **Results:** the full transcript, the recorded fields as a small table, the agent's summary, and its response time on each turn.
+7. **Next:** "Join the waitlist for hosted Offhook" (email, company, which use case) and "Run it yourself" (docs).
 
 ## Limits
 
 | Limit | Value | Where it's enforced |
 | --- | --- | --- |
+| Plans per visitor per day | 10 | Server, same visitor key as calls |
 | Calls per visitor per day | 3 | Server: keyed on a salted, daily-rotated hash of the IP plus a first-party cookie ID; whichever is used up first counts |
 | Call length | 2 minutes | Server: at 1:45 the agent is told to wrap up; at 2:00 the call ends |
 | Silence | 20 seconds with nobody talking ends the call | Server |
@@ -123,7 +145,8 @@ To keep it up while you're away:
 | --- | --- |
 | `GET /use-cases` | The launch use cases, with briefs and fields |
 | `GET /status` | Whether the live demo is online right now |
-| `POST /sessions` | `{use_case}` or `{custom: {…}}` plus `turnstile_token`. Returns `{session_id, ticket, voice_url}`, a limit error, or "offline" |
+| `POST /plans` | `{purpose, turnstile_token}`. Returns a call plan, or a refusal with a reason |
+| `POST /sessions` | `{use_case}` or `{plan: {…}}` plus `turnstile_token`. The plan is validated again (lengths, field count). Returns `{session_id, ticket, voice_url}`, a limit error, or "offline" |
 | `GET /sessions/{id}` | Status, transcript, outcome, summary, per-turn latency |
 | `POST /waitlist` | `{email, company?, use_case?, turnstile_token}` |
 | `POST /internal/claim`, `POST /internal/results` | Voice server to Worker only, HMAC-signed |
@@ -132,7 +155,7 @@ CORS allows only `https://offhook.welldun.ai` (and localhost in dev). The voice 
 
 ### Configuration
 
-- **Worker vars and secrets:** `ALLOWED_ORIGINS`, `VOICE_URL`, `DAILY_CALLS_PER_VISITOR=3`, `MAX_CALL_SECONDS=120`, `MAX_CONCURRENT=5`, `DAILY_MINUTES_CAP=300`, `TURNSTILE_SECRET_KEY`, `DEMO_HMAC_SECRET`, `VISITOR_HASH_SALT`.
+- **Worker vars and secrets:** `GROQ_API_KEY` (for the planner), `DAILY_PLANS_PER_VISITOR=10`, `ALLOWED_ORIGINS`, `VOICE_URL`, `DAILY_CALLS_PER_VISITOR=3`, `MAX_CALL_SECONDS=120`, `MAX_CONCURRENT=5`, `DAILY_MINUTES_CAP=300`, `TURNSTILE_SECRET_KEY`, `DEMO_HMAC_SECRET`, `VISITOR_HASH_SALT`.
 - **Voice server (`.env` on your machine):** `DEEPGRAM_API_KEY`, `CARTESIA_API_KEY`, `GROQ_API_KEY`, `DEMO_HMAC_SECRET`, `WORKER_URL`.
 - **Tunnel:** a tunnel token from the Cloudflare dashboard, used by the `cloudflared` container.
 
@@ -148,8 +171,8 @@ The demo spends your provider credit (speech-to-text, text-to-speech and the mod
 
 Each one ends with a review before the next starts.
 
-1. **Site repositioning (static).** New hero and positioning, the three use-case cards with sample transcripts and recorded fields, the developer section moved down, and a "Try it" button that is disabled until M3.
-2. **Demo backend.** The voice server (`app/demo/server.py`: WebSocket audio, tickets, cutoffs, results callback, Docker image) and the Worker (Gate, D1, Turnstile, limits, health check, waitlist, expiry), with tests. Runs locally with `wrangler dev`.
+1. **Site repositioning (static).** A hero built around "describe the call": the plain-English box, the three examples filling it and showing their plans; use-case pages with sample calls; the developer section moved down. Custom plans and calls wait for the backend.
+2. **Demo backend.** The planner (`POST /plans`, schema-checked output and refusals), the voice server (`app/demo/server.py`: WebSocket audio, tickets, cutoffs, results callback, Docker image) and the Worker (Gate, D1, Turnstile, limits, health check, waitlist, expiry), with tests. Runs locally with `wrangler dev`.
 3. **Demo UI.** The brief, the live call with countdown and transcript, the results view, the custom-case form and every limit message, against the local backend.
 4. **Deploy.** The Worker, Gate and D1 on your Cloudflare account under `demo.offhook.welldun.ai`; the tunnel as `voice.offhook.welldun.ai`; the voice server and `cloudflared` running in Docker on your machine; Turnstile set up and CORS locked to the site. Then the "Try it" buttons go live.
 5. **Waitlist.** The signup form on the site, plus a simple way for you to export entries.

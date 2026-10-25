@@ -11,6 +11,7 @@ export interface UseCase {
   title: string; // the job, in the visitor's words
   team: string; // who makes these calls today
   summary: string; // one line for the card
+  purpose: string; // the plain-English brief a visitor would type for this call
   agent: { name: string; company: string; role: string };
   person: string; // who the visitor plays in the demo
   brief: string; // what the visitor is told before a demo call
@@ -29,6 +30,7 @@ export const USE_CASES: UseCase[] = [
     title: "Screen candidates",
     team: "Recruiting",
     summary: "Follow up every application within the hour, check the basics, and book interviews with the people who fit.",
+    purpose: "Call candidates who applied for our backend engineer role. Check they're still interested, ask their notice period and salary expectations, and book an interview.",
     agent: { name: "Sam", company: "Northwind", role: "recruiter" },
     person: "the candidate",
     brief: "You applied for the backend engineer role at Northwind last week. You're interested, but you have a 60-day notice period. Say what you'd say on a real call.",
@@ -64,6 +66,7 @@ export const USE_CASES: UseCase[] = [
     title: "Confirm appointments",
     team: "Front desk",
     summary: "Call patients the day before, confirm or reschedule, and free up slots that would otherwise go empty.",
+    purpose: "Call patients the day before their appointment to confirm it. If they can't make it, offer another open slot and note anything they want the clinic to know.",
     agent: { name: "Alex", company: "Acme Clinic", role: "front desk assistant" },
     person: "the patient",
     brief: "You have an appointment at Acme Clinic with Dr. Rao on Tuesday at 3 PM. Something has come up, so you'd like to move it. Say what you'd say on a real call.",
@@ -98,6 +101,7 @@ export const USE_CASES: UseCase[] = [
     title: "Qualify leads",
     team: "Sales",
     summary: "Call back every demo request while it's still warm, learn what they need, and book the right ones with your team.",
+    purpose: "Call people who asked for a demo of our help desk tool. Find out what they need, their team size and timeline, and book a demo if it's a good fit.",
     agent: { name: "Riya", company: "Brightdesk", role: "sales development rep" },
     person: "the lead",
     brief: "You asked for a demo of Brightdesk, a help desk tool, on its website yesterday. Your support team of eight is outgrowing shared inboxes. Say what you'd say on a real call.",

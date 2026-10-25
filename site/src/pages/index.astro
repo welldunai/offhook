@@ -1,15 +1,15 @@
 ---
 import Base from "../layouts/Base.astro";
 import Code from "../components/Code.astro";
-import { USE_CASES, useCaseBySlug, showValue } from "../use-cases";
+import { USE_CASES } from "../use-cases";
+import CallComposer from "../components/CallComposer.astro";
 
 const GITHUB = "https://github.com/welldunai/offhook";
-const hero = useCaseBySlug["appointment-confirmation"];
 
 const teamSteps = [
-  { title: "Describe the call", body: "Who the agent is, what it should find out, and the facts it knows, such as the open slots or the role you're hiring for. Plain sentences, no scripts." },
-  { title: "Tell it who to call", body: "Each call takes a phone number and the details for that person. Offhook dials, holds the conversation, and reports busy lines and unanswered calls with a reason, so you know who to try again." },
-  { title: "Get answers, not recordings", body: "Each call comes back as structured results (confirmed, new time, interview slot), with the transcript and a summary, ready for your spreadsheet or system." },
+  { title: "Describe the call", body: "Say who the agent is calling and what you need to find out, the way you'd brief a colleague. No scripts or call flows to draw." },
+  { title: "Offhook plans it", body: "It turns your description into a call plan: who the agent is, how it opens, what it asks, and which answers to record. You can change any of it." },
+  { title: "It calls and reports back", body: "The agent holds a natural conversation and handles the back and forth. You get structured answers, a summary and the full transcript for every call." },
 ];
 
 const steps = [
@@ -98,47 +98,26 @@ python run.py`;
 ---
 
 <Base
-  title="Offhook — AI phone agents for the calls your team makes"
-  description="Offhook is an AI phone agent for recruiting, appointment and sales calls. It holds natural conversations, records structured results and gives you every transcript. Open source; run it with your own keys."
+  title="Offhook — describe the call, an AI agent makes it"
+  description="Describe a call in plain English and Offhook's AI agent makes it: it holds the conversation, records the answers and gives you the transcript. For recruiting, appointments, sales and any routine call. Open source."
 >
-  <section class="hero wd-container">
+  <section class="hero hero--composer wd-container">
     <div class="hero-copy">
-      <p class="wd-eyebrow">AI phone agents<span class="wd-eyebrow-sep">·</span>Open source</p>
-      <h1 class="display-xl">An AI agent for the calls your team makes every&nbsp;day.</h1>
+      <p class="wd-eyebrow">AI phone agent<span class="wd-eyebrow-sep">·</span>Open source</p>
+      <h1 class="display-xl">Describe the call. Offhook makes&nbsp;it.</h1>
       <p class="lede body-lg">
-        Offhook calls candidates, patients and leads for you. It holds a natural conversation,
-        records what it learns as structured results, and gives you the transcript of every call.
+        Tell it in plain English who it's calling and what you need to find out. It holds the
+        conversation, records the answers, and gives you the transcript.
       </p>
-      <div class="wd-row hero-actions">
-        <a class="wd-btn wd-btn--primary" href="#use-cases">See what it can do <span class="wd-btn-arrow" aria-hidden="true">→</span></a>
-        <a class="wd-btn wd-btn--secondary" href="#developers">Run it yourself</a>
-      </div>
-      <p class="hero-meta">Live demo and hosted version coming soon</p>
+      <p class="hero-meta">For recruiting, appointments, sales follow-ups, and any other routine call.</p>
     </div>
-
-    <figure class="call-record" aria-label={`Example: ${hero.title.toLowerCase()}`}>
-      <div class="cr-head">
-        <span class="cr-id">{hero.agent.company} · sample call</span>
-        <span class="wd-badge">Example</span>
-        <span class="wd-status wd-status--done"><span class="wd-status-dot" aria-hidden="true"></span>completed</span>
-      </div>
-      <div class="cr-transcript" aria-label="Transcript">
-        {hero.sample.slice(2, 6).map((t) => (
-          <p><span class="who">{t.who === "agent" ? "Agent" : "Patient"}</span>{t.text}</p>
-        ))}
-      </div>
-      <dl class="cr-facts cr-results" aria-label="What the agent recorded">
-        {hero.fields.map((f) => (
-          <div><dt>{f.label}</dt><dd>{showValue(hero.outcome[f.key])}</dd></div>
-        ))}
-      </dl>
-    </figure>
+    <CallComposer />
   </section>
 
   <section class="section" id="use-cases" aria-labelledby="uc-title"><div class="wd-container"><div class="section-inner">
     <div class="section-head">
-      <p class="wd-eyebrow">Use cases</p>
-      <h2 id="uc-title" class="display-md">Pick a call your team makes today.</h2>
+      <p class="wd-eyebrow">Examples</p>
+      <h2 id="uc-title" class="display-md">Calls teams hand to Offhook.</h2>
     </div>
     <div class="uc-grid">
       {USE_CASES.map((u) => (
@@ -158,7 +137,7 @@ python run.py`;
   <section class="section" id="for-teams" aria-labelledby="teams-title"><div class="wd-container"><div class="section-inner">
     <div class="section-head">
       <p class="wd-eyebrow">How it works</p>
-      <h2 id="teams-title" class="display-md">You describe the call. Offhook makes it.</h2>
+      <h2 id="teams-title" class="display-md">From a sentence to a finished call.</h2>
     </div>
     <ol class="team-steps">
       {teamSteps.map((s, i) => (

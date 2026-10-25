@@ -1,0 +1,102 @@
+---
+// "Describe the call" box. The three examples fill the box and show their ready-made
+// call plan. Custom purposes need the demo backend (DEMO.md); until it ships, submitting
+// one explains that, and keeps what the visitor typed.
+import { USE_CASES } from "../use-cases";
+---
+
+<div class="composer" data-composer>
+  <form class="composer-form" novalidate>
+    <label class="composer-label" for="purpose">What should the call be about?</label>
+    <textarea
+      id="purpose"
+      name="purpose"
+      rows="4"
+      maxlength="500"
+      placeholder="e.g. Call customers who missed a delivery yesterday. Find a new delivery day and note any instructions for the driver."
+    ></textarea>
+    <div class="composer-bar">
+      <span class="composer-count" aria-live="polite"><span data-count>0</span> / 500</span>
+      <button class="wd-btn wd-btn--primary" type="submit">Plan the call <span class="wd-btn-arrow" aria-hidden="true">→</span></button>
+    </div>
+  </form>
+
+  <div class="composer-examples">
+    <span class="composer-examples-label">Or try an example</span>
+    {USE_CASES.map((u) => (
+      <button type="button" class="composer-chip" data-example={u.slug}>{u.title}</button>
+    ))}
+  </div>
+
+  <p class="composer-notice" data-notice hidden>
+    Planning your own call needs the live demo, which opens soon. You can try the three examples now.
+  </p>
+
+  {USE_CASES.map((u) => (
+    <section class="plan" data-plan={u.slug} data-purpose={u.purpose} hidden aria-label={`Call plan: ${u.title}`}>
+      <div class="plan-head">
+        <span class="plan-title">Call plan</span>
+        <span class="wd-badge">Example</span>
+      </div>
+      <dl class="plan-grid">
+        <div><dt>The agent</dt><dd>{u.agent.name}, {u.agent.role} at {u.agent.company}</dd></div>
+        <div><dt>Opens with</dt><dd>“{u.firstMessage}”</dd></div>
+        <div><dt>Goal</dt><dd>{u.goal}</dd></div>
+        <div><dt>Records</dt><dd><ul class="uc-fields">{u.fields.map((f) => <li>{f.key}</li>)}</ul></dd></div>
+        <div><dt>You play</dt><dd>{u.brief}</dd></div>
+      </dl>
+      <div class="plan-actions">
+        <button class="wd-btn wd-btn--primary" type="button" disabled>Start the call</button>
+        <a class="wd-btn wd-btn--secondary" href={`/use-cases/${u.slug}/`}>Hear a sample call</a>
+      </div>
+      <p class="plan-note">Live calls in your browser open soon. Until then, hear how this call goes in the sample.</p>
+    </section>
+  ))}
+</div>
+
+<script>
+  for (const root of document.querySelectorAll<HTMLElement>("[data-composer]")) {
+    const form = root.querySelector("form")!;
+    const box = root.querySelector<HTMLTextAreaElement>("textarea")!;
+    const count = root.querySelector<HTMLElement>("[data-count]")!;
+    const notice = root.querySelector<HTMLElement>("[data-notice]")!;
+    const plans = [...root.querySelectorAll<HTMLElement>("[data-plan]")];
+    const chips = [...root.querySelectorAll<HTMLButtonElement>("[data-example]")];
+
+    const show = (slug: string | null) => {
+      for (const p of plans) p.hidden = p.dataset.plan !== slug;
+      for (const c of chips) c.setAttribute("aria-pressed", String(c.dataset.example === slug));
+      notice.hidden = true;
+    };
+    const updateCount = () => (count.textContent = String(box.value.length));
+    const matching = () => plans.find((p) => p.dataset.purpose === box.value.trim())?.dataset.plan ?? null;
+
+    for (const chip of chips) {
+      chip.addEventListener("click", () => {
+        const plan = plans.find((p) => p.dataset.plan === chip.dataset.example)!;
+        box.value = plan.dataset.purpose ?? "";
+        updateCount();
+        show(chip.dataset.example ?? null);
+        plan.scrollIntoView({ block: "nearest", behavior: matchMedia("(prefers-reduced-motion: reduce)").matches ? "auto" : "smooth" });
+      });
+    }
+
+    box.addEventListener("input", () => {
+      updateCount();
+      // Editing an example's text turns it into a custom purpose: hide the ready-made plan.
+      if (!matching()) show(null);
+    });
+
+    form.addEventListener("submit", (e) => {
+      e.preventDefault();
+      const slug = matching();
+      if (slug) return show(slug);
+      show(null);
+      if (!box.value.trim()) {
+        box.focus();
+        return;
+      }
+      notice.hidden = false;
+    });
+  }
+</script>
