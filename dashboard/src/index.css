@@ -261,6 +261,27 @@ textarea.input { resize: vertical; min-height: 88px; line-height: 1.55; }
 .call-summary p { margin: 2px 0 0; font-size: 15px; line-height: 22px; }
 .sr-only { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; border: 0; }
 
+/* ---- talk to an agent (test call) ---- */
+.talk-brief, .talk { display: flex; flex-direction: column; gap: 16px; }
+.talk-head { display: flex; align-items: center; gap: 12px; }
+.talk-avatar { width: 40px; height: 40px; border-radius: var(--radius-pill); display: grid; place-items: center; background: var(--tint-blue); color: var(--ink); font-weight: 700; flex: none; }
+.talk-who { display: flex; flex-direction: column; min-width: 0; font-size: 15px; }
+.talk-who .dim { font-size: 13px; font-variant-numeric: tabular-nums; }
+.talk-head .badge { margin-left: auto; }
+.talk-wave { display: flex; align-items: center; gap: 3px; height: 28px; }
+.talk-wave i { width: 3px; border-radius: 2px; background: var(--signal); opacity: .8; }
+.talk-wave--live i { animation: talk-wave 1.1s ease-in-out infinite; }
+.talk-wave--live i:nth-child(3n) { animation-delay: -.3s; } .talk-wave--live i:nth-child(3n+1) { animation-delay: -.6s; }
+@keyframes talk-wave { 0%, 100% { transform: scaleY(.45); } 50% { transform: scaleY(1); } }
+.talk-bubbles { max-height: 320px; overflow-y: auto; }
+.talk-label { font-size: 13px; font-weight: 600; color: var(--ink-muted); margin-bottom: 8px; }
+.talk-results { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 8px; }
+.talk-result { padding: 10px 14px; border-radius: var(--radius-md); background: var(--surface-raised); border: 1px solid var(--line); }
+.talk-result span { display: block; font-size: 12px; color: var(--ink-muted); }
+.talk-result strong { display: block; margin-top: 2px; font-size: 15px; }
+.talk-problem { margin: 0; padding: 12px 14px; border-radius: var(--radius-md); background: var(--status-failed-soft); font-size: 14px; }
+.modal:has(.talk) { max-width: 560px; }
+
 /* ---- modal ---- */
 .overlay { position: fixed; inset: 0; background: rgb(20 18 15 / .45); display: grid; place-items: center; z-index: 50; padding: 24px; }
 .modal { background: var(--surface); border: 1px solid var(--card-border); border-radius: var(--radius-xl); box-shadow: var(--shadow-overlay); width: 100%; max-width: 500px; max-height: 88vh; overflow: auto; }

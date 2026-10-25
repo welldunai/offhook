@@ -1,4 +1,4 @@
-"""The demo's WebSocket wire format, as a Pipecat frame serializer.
+"""The browser-call WebSocket wire format (demo and dashboard test calls), as a Pipecat frame serializer.
 
 Browser → server:
   * binary: microphone audio, 16 kHz mono 16-bit little-endian PCM.
@@ -33,7 +33,7 @@ EVENT_TYPES = {"transcript", "result", "interrupt", "wrap_up", "ended", "error"}
 MAX_CHUNK_BYTES = SAMPLE_RATE * 2
 
 
-class DemoSerializer(FrameSerializer):
+class BrowserCallSerializer(FrameSerializer):
     """Raw PCM both ways, plus JSON events to the browser."""
 
     async def serialize(self, frame: Frame) -> str | bytes | None:

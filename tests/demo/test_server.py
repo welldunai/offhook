@@ -103,9 +103,9 @@ def test_a_claim_for_another_session_is_refused():
 def test_a_call_that_never_finishes_is_given_up_on_and_reported(monkeypatch):
     import asyncio
 
-    import app.demo.server as server
+    import app.browser.socket as browser_socket
 
-    monkeypatch.setattr(server, "WATCHDOG_GRACE", -119.8)  # 0.2 s after the start, for the test
+    monkeypatch.setattr(browser_socket, "WATCHDOG_GRACE", -119.8)  # 0.2 s after the start, for the test
     fake = FakeWorker()
     settings = DemoSettings(_env_file=None, **FULL)
     worker = WorkerClient("http://worker.test", "secret", transport=httpx.MockTransport(fake))

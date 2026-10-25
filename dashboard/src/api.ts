@@ -159,7 +159,17 @@ const qs = (p: Record<string, string | number | undefined>) => {
   return str ? `?${str}` : "";
 };
 
+export interface TestCallTicket {
+  ticket: string;
+  ws_url: string;
+  max_seconds: number;
+}
+
 export const api = {
+  /** A single-use ticket to talk to an agent in the browser (not a phone call). */
+  testCall: (agentId: string, context: Record<string, unknown> = {}) =>
+    req<TestCallTicket>(`/v1/agents/${agentId}/test-call`, { method: "POST", body: JSON.stringify({ context }) }),
+
   me: () => req<Me>("/v1/me"),
   validate: () => req<Providers>("/v1/providers"),
   providers: () => req<Providers>("/v1/providers"),

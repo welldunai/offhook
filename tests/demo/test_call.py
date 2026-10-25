@@ -176,7 +176,7 @@ async def test_watcher_streams_turns_and_results_once_and_tracks_speaking():
     from pipecat.observers.base_observer import FramePushed
     from pipecat.processors.frame_processor import FrameDirection
 
-    from app.demo.call import _Watcher
+    from app.browser.call import _Watcher
 
     clock = Clock()
     call, _, events = started_call(clock)
@@ -232,7 +232,7 @@ async def test_a_few_errors_are_tolerated_once_the_agent_has_spoken():
 
 
 async def test_agent_hang_up_stops_the_call_even_if_the_end_frame_is_lost(monkeypatch):
-    import app.demo.call as call_mod
+    import app.browser.call as call_mod
 
     monkeypatch.setattr(call_mod, "HARD_STOP_SECONDS", 0.01)
     clock = Clock()
@@ -243,7 +243,7 @@ async def test_agent_hang_up_stops_the_call_even_if_the_end_frame_is_lost(monkey
 
 
 async def test_agent_hang_up_leaves_a_finished_call_alone(monkeypatch):
-    import app.demo.call as call_mod
+    import app.browser.call as call_mod
 
     monkeypatch.setattr(call_mod, "HARD_STOP_SECONDS", 0.01)
     clock = Clock()

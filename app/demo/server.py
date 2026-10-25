@@ -14,48 +14,18 @@ A connection's life:
 
 from __future__ import annotations
 
-import asyncio
 import json
-from typing import Any, Awaitable, Callable
+from typing import Any
 
 from fastapi import FastAPI, WebSocket
 from fastapi.responses import JSONResponse
-from pipecat.transports.websocket.fastapi import FastAPIWebsocketParams, FastAPIWebsocketTransport
 
+from app.browser.socket import CallRunner, run_guarded, run_over_socket
 from app.demo.call import DemoCall, Limits, voice_config
 from app.demo.config import DemoSettings
-from app.demo.serializer import SAMPLE_RATE, DemoSerializer
 from app.demo.signing import read_ticket
 from app.demo.worker import ClaimRefused, WorkerClient
 from app.logger import logger
-
-#: Seconds past a call's time limit before the server gives up on it, whatever
-#: the pipeline is doing: the results are posted and the line is freed.
-WATCHDOG_GRACE = 45
-
-#: Runs a claimed call over a socket; tests replace it.
-CallRunner = Callable[[DemoCall, WebSocket], Awaitable[None]]
-
-
-async def run_over_socket(call: DemoCall, websocket: WebSocket) -> None:
-    """Run ``call`` with Pipecat's FastAPI WebSocket transport and the demo wire format.
-
-    Args:
-        call: The claimed call.
-        websocket: The accepted browser socket.
-    """
-    transport = FastAPIWebsocketTransport(
-        websocket,
-        FastAPIWebsocketParams(
-            audio_in_enabled=True,
-            audio_out_enabled=True,
-            audio_in_sample_rate=SAMPLE_RATE,
-            audio_out_sample_rate=SAMPLE_RATE,
-            serializer=DemoSerializer(),
-        ),
-    )
-    await call.run(transport)
-
 
 def create_app(
     settings: DemoSettings,
@@ -115,21 +85,8 @@ def create_app(
         )
         state["active"] += 1
         logger.info(f"[demo] call {session_id} starting ({state['active']} active)")
-        running = asyncio.create_task(runner(call, websocket))
         try:
-            done, _ = await asyncio.wait({running}, timeout=call.limits.max_seconds + WATCHDOG_GRACE)
-            if not done:
-                logger.error(f"[demo] call {session_id} didn't finish; giving up on it")
-                running.cancel()
-                call.end_reason = call.end_reason or "error"
-                try:
-                    await websocket.close()
-                except Exception:  # noqa: BLE001 - already closed
-                    pass
-            elif running.exception() is not None:
-                logger.opt(exception=running.exception()).error(f"[demo] call {session_id} crashed")
-                call.failed = True
-                call.end_reason = "error"
+            await run_guarded(call, websocket, runner)
         finally:
             state["active"] -= 1
             await worker.post_results(call.results())

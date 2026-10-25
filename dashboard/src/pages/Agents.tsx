@@ -1,13 +1,15 @@
 import { useState } from "react";
-import { api, type Connection, type Tool } from "../api";
+import { type Agent, api, type Connection, type Tool } from "../api";
 import { Page, useAsync } from "../hooks";
 import { Spinner, Empty, Modal, Field, Select, Icon, fmtDate, useToast } from "../ui";
+import TalkModal from "./TalkModal";
 
 export default function Agents() {
   const agents = useAsync(() => api.agents(), []);
   const conns = useAsync(() => api.connections(), []);
   const tools = useAsync(() => api.tools(), []);
   const [open, setOpen] = useState(false);
+  const [talking, setTalking] = useState<Agent | null>(null);
   const toast = useToast();
 
   async function del(id: string) {
@@ -32,13 +34,21 @@ export default function Agents() {
                   <td className="muted">{a.company || "—"}</td>
                   <td className="muted" style={{ maxWidth: 360, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{a.instructions}</td>
                   <td className="muted">{fmtDate(a.created_at)}</td>
-                  <td><button className="btn btn-danger btn-sm" onClick={() => del(a.id)}><Icon name="trash" size={13} /></button></td>
+                  <td>
+                    <div className="row" style={{ justifyContent: "flex-end", gap: 8 }}>
+                      <button className="btn btn-ghost btn-sm" onClick={() => setTalking(a)} title="Talk to this agent in your browser">
+                        <Icon name="calls" size={13} /> Talk
+                      </button>
+                      <button className="btn btn-danger btn-sm" onClick={() => del(a.id)} aria-label={`Delete ${a.name}`}><Icon name="trash" size={13} /></button>
+                    </div>
+                  </td>
                 </tr>
               ))}
             </tbody>
           </table>
         )}
       </div>
+      {talking && <TalkModal agent={talking} onClose={() => setTalking(null)} />}
       {open && <CreateModal conns={conns.data || []} tools={tools.data || []} onClose={() => setOpen(false)} onDone={() => { setOpen(false); agents.reload(); }} />}
     </Page>
   );

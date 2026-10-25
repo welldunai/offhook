@@ -23,6 +23,7 @@ from app.api import (  # noqa: E402
     connections,
     health,
     phone_numbers,
+    test_calls,
     tools,
     usage,
     webhooks,
@@ -72,8 +73,12 @@ v1.include_router(webhooks.router)
 v1.include_router(usage.router)
 v1.include_router(phone_numbers.router)
 v1.include_router(activity.router)  # /v1/calls (list), /events, /transcript, /stats
+v1.include_router(test_calls.router)  # /v1/agents/{id}/test-call
 v1.include_router(tenant_router)  # /v1/calls (create), /v1/providers
 app.include_router(v1)
+
+# Test-call audio (ticket-authed WebSocket, NOT under require_tenant).
+app.include_router(test_calls.socket_router)
 
 # Carrier webhooks (token-authed, NOT under require_tenant).
 app.include_router(carrier_router, prefix="/v1")
