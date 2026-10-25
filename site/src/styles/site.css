@@ -242,3 +242,13 @@ h1, h2 { text-wrap: balance; }
 
 @media (max-width: 960px) { .hero--human { grid-template-columns: minmax(0, 1fr); gap: var(--space-6); padding-block: var(--space-6); } }
 @media (max-width: 560px) { .plan-grid > div { grid-template-columns: minmax(0, 1fr); gap: 2px; } .hero-scene { padding: var(--space-4); } }
+
+/* ---------- use-case pages (v2) ---------- */
+.visually-hidden { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; border: 0; }
+.uc-call { padding: var(--space-6); border-radius: var(--radius-xl); background: var(--surface-sunken); border: 0; box-shadow: none; gap: var(--space-3); }
+.uc-spec { gap: var(--space-4); }
+.uc-spec dt { font-size: 13px; line-height: 18px; font-weight: 600; color: var(--ink-muted); }
+.uc-fields-table td { font-size: 15px; }
+.uc-fields-table span { font-weight: 500; }
+.uc-more { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+@media (max-width: 560px) { .uc-call { padding: var(--space-4); } }

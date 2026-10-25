@@ -50,7 +50,7 @@ const code = [
 <Base title={`${u.title} with an AI phone agent · Offhook`} description={u.summary}>
   <section class="wd-container uc-page">
     <header class="uc-head">
-      <p class="wd-eyebrow"><a class="crumb" href="/#use-cases">Use cases</a><span class="wd-eyebrow-sep">/</span>{u.team}</p>
+      <p class="wd-eyebrow"><a class="crumb" href="/#use-cases">Examples</a><span class="wd-eyebrow-sep">/</span>{u.team}</p>
       <h1 class="display-lg">{u.title}</h1>
       <p class="body-lg uc-lede">{u.summary}</p>
       <div class="wd-row">
@@ -67,7 +67,7 @@ const code = [
           <div><dt>Who answers</dt><dd>{personLabel}</dd></div>
           <div><dt>The goal</dt><dd>{u.goal}</dd></div>
         </dl>
-        <h2 class="uc-sub">What the agent records</h2>
+        <h2 class="wd-label">What the agent writes down</h2>
         <table class="uc-fields-table">
           <tbody>
             {u.fields.map((f) => (
@@ -79,41 +79,46 @@ const code = [
       </aside>
 
       <section class="uc-call" aria-labelledby="sample-title">
-        <div class="uc-call-head">
-          <h2 id="sample-title" class="uc-sub">A sample call</h2>
-          <span class="wd-badge">Example</span>
-        </div>
-        <ol class="chat">
-          {u.sample.map((t) => (
-            <li class:list={["chat-turn", t.who === "agent" ? "is-agent" : "is-person"]}>
-              <span class="chat-who">{t.who === "agent" ? u.agent.name : personLabel}</span>
-              <p>{t.text}</p>
-            </li>
-          ))}
-        </ol>
-        <div class="uc-outcome">
-          <span class="uc-sub">Recorded</span>
-          <dl>
-            {u.fields.map((f) => (
-              <div><dt>{f.label}</dt><dd>{showValue(u.outcome[f.key])}</dd></div>
+        <h2 id="sample-title" class="wd-label">A sample call</h2>
+        <div class="wd-call">
+          <div class="wd-call-head">
+            <span class:list={["wd-avatar", "wd-avatar--lg", `wd-avatar--${u.tint}`]} aria-hidden="true">{u.agent.name[0]}</span>
+            <div class="wd-call-who">
+              <span class="wd-call-name">{u.agent.name} from {u.agent.company}</span>
+              <span class="wd-call-meta">Calling {u.person} · example</span>
+            </div>
+            <span class="wd-status wd-status--done"><span class="wd-status-dot" aria-hidden="true"></span>completed</span>
+          </div>
+          <ul class="wd-bubbles" aria-label="Transcript">
+            {u.sample.map((t) => (
+              <li class:list={["wd-bubble", t.who === "person" && "wd-bubble--caller"]}>
+                <span class="visually-hidden">{t.who === "agent" ? `${u.agent.name}: ` : `${personLabel}: `}</span>{t.text}
+              </li>
             ))}
-          </dl>
+          </ul>
+        </div>
+        <p class="wd-label scene-label">What {u.agent.name} wrote down</p>
+        <div class="wd-results">
+          {u.fields.map((f) => (
+            <div class="wd-result"><span>{f.label}</span><strong>{showValue(u.outcome[f.key])}</strong></div>
+          ))}
         </div>
       </section>
     </div>
 
     <section class="uc-build" aria-labelledby="build-title">
-      <h2 id="build-title" class="display-md">Build this call</h2>
+      <h2 id="build-title" class="display-md">Build this call yourself</h2>
       <p class="body-lg uc-lede">Two requests to a self-hosted Offhook. The instructions below are exactly what the sample agent runs on.</p>
       <Code tabs={code} />
     </section>
 
     <nav class="uc-more" aria-label="Other use cases">
       {others.map((o) => (
-        <a class="wd-card" href={`/use-cases/${o.slug}/`}>
-          <span class="wd-eyebrow">{o.team}</span>
-          <span class="wd-card-title">{o.title}</span>
-          <span class="wd-card-desc">{o.summary}</span>
+        <a class:list={["wd-tile", `wd-tile--${o.tint}`]} href={`/use-cases/${o.slug}/`}>
+          <span class="wd-tile-tag">{o.team}</span>
+          <span class="wd-tile-title">{o.title}</span>
+          <span class="wd-tile-desc">{o.summary}</span>
+          <span class="wd-tile-go">See a sample call <span class="wd-arrow" aria-hidden="true">→</span></span>
         </a>
       ))}
     </nav>

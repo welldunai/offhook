@@ -10,7 +10,7 @@ interface Props {
 const { title, description } = Astro.props;
 const canonical = new URL(Astro.url.pathname, Astro.site);
 const ogImage = new URL("/og.png", Astro.site);
-const ogAlt = "Offhook: an AI agent for the calls your team makes every day. A sample appointment call and what the agent recorded.";
+const ogAlt = "Offhook: describe the call and it makes it. An example call where Alex from Acme Clinic moves an appointment, with what it wrote down.";
 const GITHUB = "https://github.com/welldunai/offhook";
 const NAV = [
   { label: "Use cases", href: "/#use-cases" },
