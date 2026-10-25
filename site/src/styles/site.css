@@ -382,3 +382,8 @@ h1, h2 { text-wrap: balance; }
 .live-pill:hover { box-shadow: inset 0 0 0 1px var(--status-live); }
 .live-pill-dot { width: 8px; height: 8px; border-radius: var(--radius-pill); background: var(--status-live); box-shadow: 0 0 0 0 var(--status-live); animation: wd-pulse 1.6s ease-out infinite; }
 @media (prefers-reduced-motion: reduce) { .live-pill-dot { animation: none; } }
+
+/* Icon-only header button (GitHub) */
+.oh-icon-btn { display: inline-grid; place-items: center; width: 36px; height: 36px; border-radius: var(--radius-pill); color: var(--ink); border: 1px solid var(--line-strong); background: transparent; transition: background .12s ease; }
+.oh-icon-btn:hover { background: var(--surface-sunken); }
+.oh-icon-btn:focus-visible { outline: 2px solid var(--focus); outline-offset: 2px; }
