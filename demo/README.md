@@ -56,6 +56,14 @@ python demo/e2e/browser_call.py
 
 It opens Chromium with a fake microphone that plays a patient's lines, makes the appointment call end to end, plans and edits a custom call, opens "Try it live" on a use-case page, and joins the waitlist.
 
+## Reset today's limits
+
+Testing the live demo more than 3 times a day? Clear every visitor's counts for today (plans, calls, signups):
+
+```bash
+python -m app.demo.reset_limits     # signs with DEMO_HMAC_SECRET from .env
+```
+
 ## Useful checks
 
 ```bash

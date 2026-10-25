@@ -65,6 +65,20 @@ export async function results(request: Request, env: Env): Promise<Response> {
   return json({ ok: true });
 }
 
+/**
+ * POST /internal/reset: {} → clears today's per-visitor counts (plans, calls,
+ * signups). For the maintainer, signed with DEMO_HMAC_SECRET like the voice
+ * server's calls. Lines in use and the day's minutes are left alone.
+ * Args: request — signed; env — bindings.
+ * Returns: 200 {cleared}; 401 bad signature.
+ */
+export async function resetUsage(request: Request, env: Env): Promise<Response> {
+  const body = await signedBody(request, env, Date.now());
+  if (body instanceof Response) return body;
+  const cleared = await gateOf(env).clearUsage(new Date().toISOString().slice(0, 10));
+  return json({ cleared });
+}
+
 export interface Results {
   session_id: string;
   status: "completed" | "failed";

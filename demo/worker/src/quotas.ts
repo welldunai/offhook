@@ -51,6 +51,17 @@ export class Quotas {
   }
 
   /**
+   * Forgets every visitor's counts for a day (the maintainer's reset).
+   * Args: day — "YYYY-MM-DD" in UTC.
+   * Returns: how many counters were removed.
+   */
+  clear(day: string): number {
+    const n = Number(this.sql.exec("SELECT COUNT(*) AS n FROM usage WHERE day = ?", day).toArray()[0].n);
+    this.sql.exec("DELETE FROM usage WHERE day = ?", day);
+    return n;
+  }
+
+  /**
    * Args: kind, keys, day — as for take().
    * Returns: the highest count among the keys today.
    */

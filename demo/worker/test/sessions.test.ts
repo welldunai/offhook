@@ -180,3 +180,17 @@ describe("POST /waitlist", () => {
     expect((await join({ email: "a@b.co" })).status).toBe(403);
   });
 });
+
+describe("POST /internal/reset", () => {
+  it("clears today's visitor counts, only when signed", async () => {
+    upstreams();
+    expect((await start({ use_case: "lead-qualification" })).status).toBe(201);
+    expect((await start({ use_case: "lead-qualification" })).status).toBe(201);
+    expect((await start({ use_case: "lead-qualification" })).status).toBe(429);
+    expect((await call("/internal/reset", { method: "POST", body: "{}" })).status).toBe(401);
+    const res = await signed("/internal/reset", {});
+    expect(res.status).toBe(200);
+    expect(((await res.json()) as any).cleared).toBeGreaterThan(0);
+    expect((await start({ use_case: "lead-qualification" })).status).not.toBe(429);
+  });
+});

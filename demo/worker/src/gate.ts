@@ -27,6 +27,11 @@ export class Gate extends DurableObject<object> {
     this.quotas.refund(kind, keys, day);
   }
 
+  /** See Quotas.clear. */
+  clearUsage(day: string): number {
+    return this.quotas.clear(day);
+  }
+
   /** See Lines.start. */
   startCall(sessionId: string, keys: string[], day: string, now: number, limits: CallLimits): Start {
     return this.lines.start(sessionId, keys, day, now, limits);
