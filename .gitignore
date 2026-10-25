@@ -13,3 +13,4 @@ scratch_*.log
 node_modules/
 dashboard/.env
 .astro/
+.env.hosted

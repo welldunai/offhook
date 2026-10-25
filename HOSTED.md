@@ -44,3 +44,20 @@ Each ends with a review.
 4. **The site:** "Sign in" in the header; the demo's waitlist leads to an invite.
 5. **Running it:** nightly Postgres backups, the master key kept off the repo and
    backed up, keeping the Mac awake, and what users see when it's down.
+
+## Running it (milestone 2)
+
+```bash
+cp .env.hosted.example .env.hosted      # then fill in: a DB password (twice), a new
+                                        # MASTER_ENCRYPTION_KEY, CLERK_ISSUER
+docker compose -f docker-compose.hosted.yml up -d --build
+curl localhost:8100/healthz             # {"status":"ok"}
+```
+
+- Three containers in their own Compose project, `offhook-hosted`: `db` (Postgres 16,
+  data in the `hosted_pgdata` volume), `api` (runs migrations, then serves on
+  127.0.0.1:8100) and `worker` (dials queued calls, sends webhooks).
+- The hosted database and master key are separate from any dev setup. Provider keys
+  are stored only encrypted (checked: no raw key appears in a full dump).
+- Local dashboard against it: `VITE_API_URL=http://localhost:8100` in `dashboard/.env`,
+  then `npx vite --port 5173` in `dashboard/`.

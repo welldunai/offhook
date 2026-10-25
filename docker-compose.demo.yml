@@ -6,6 +6,8 @@
 # Settings come from .env (see .env.example, "Live demo voice server"). Both
 # services restart on their own after a crash or a reboot.
 
+name: offhook
+
 services:
   voice:
     build: .

@@ -1,0 +1,68 @@
+# Hosted Offhook on your own machine (HOSTED.md): Postgres, the API and the call
+# worker. The internet reaches only the API, through the Cloudflare Tunnel at
+# api.offhook.welldun.ai (the tunnel runs from docker-compose.demo.yml).
+#
+#   docker compose -f docker-compose.hosted.yml up -d --build
+#
+# Settings: .env.hosted (see .env.hosted.example). Data lives in Docker volumes;
+# back them up (HOSTED.md, milestone 5).
+
+name: offhook-hosted
+
+services:
+  db:
+    image: postgres:16
+    # POSTGRES_PASSWORD comes from .env.hosted.
+    env_file: .env.hosted
+    environment:
+      POSTGRES_USER: offhook
+      POSTGRES_DB: offhook
+    volumes:
+      - hosted_pgdata:/var/lib/postgresql/data
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U offhook -d offhook"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+
+  api:
+    build: .
+    image: offhook-app
+    # Migrations first, so a new image always meets its schema.
+    command: ["sh", "-c", "alembic upgrade head && uvicorn app.main:app --host 0.0.0.0 --port 8000 --proxy-headers --forwarded-allow-ips='*'"]
+    env_file: .env.hosted
+    environment:
+      RECORDINGS_DIR: /data/recordings
+    volumes:
+      - hosted_recordings:/data/recordings
+    ports:
+      # Loopback only: the tunnel (and you) reach it here; nothing else does.
+      - "127.0.0.1:8100:8000"
+    depends_on:
+      db:
+        condition: service_healthy
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request as u; u.urlopen('http://127.0.0.1:8000/healthz', timeout=3)"]
+      interval: 15s
+      timeout: 5s
+      retries: 3
+      start_period: 30s
+
+  worker:
+    image: offhook-app
+    command: ["python", "-m", "app.worker"]
+    env_file: .env.hosted
+    environment:
+      RECORDINGS_DIR: /data/recordings
+    volumes:
+      - hosted_recordings:/data/recordings
+    depends_on:
+      api:
+        condition: service_healthy
+    restart: unless-stopped
+
+volumes:
+  hosted_pgdata:
+  hosted_recordings:
