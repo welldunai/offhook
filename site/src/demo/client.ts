@@ -47,6 +47,25 @@ export async function planCall(purpose: string): Promise<PlanResponse> {
   return post<PlanResponse>("/plans", { purpose, turnstile_token: await turnstileToken() });
 }
 
+export interface SessionStart {
+  session_id: string;
+  ticket: string;
+  voice_url: string;
+  max_seconds: number;
+  calls_left: number;
+  plan: Plan;
+}
+
+/**
+ * Starts a demo call: a launch use case by slug, or a plan from planCall.
+ * Args: request — {use_case} or {plan}.
+ * Returns: the session and its single-use ticket. Throws DemoError (offline, lines
+ *   busy, daily limit, paused, bot check).
+ */
+export async function startSession(request: { use_case: string } | { plan: Plan }): Promise<SessionStart> {
+  return post<SessionStart>("/sessions", { ...request, turnstile_token: await turnstileToken() });
+}
+
 /**
  * POSTs JSON to the demo API with the visitor cookie.
  * Args: path — e.g. "/plans"; body — the JSON body.

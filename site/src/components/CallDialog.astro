@@ -1,0 +1,244 @@
+---
+// The live demo call, in a dialog. Opened by a "Start the call" button through a
+// `offhook:call` event (see CallComposer); one per page.
+const WAVE = [8, 14, 20, 12, 24, 16, 10, 22, 18, 12, 26, 14, 9, 20, 16, 24, 11, 18, 22, 10, 15, 21, 13, 8];
+---
+
+<dialog class="call-dialog" data-call-dialog aria-labelledby="call-title">
+  <div class="call-dialog-inner">
+    <div class="call-dialog-head">
+      <h2 id="call-title" class="call-title" data-slot="title">Your call</h2>
+      <button class="wd-btn wd-btn--ghost wd-btn--sm" type="button" data-close>Close</button>
+    </div>
+
+    <section class="call-stage" data-stage="brief">
+      <dl class="call-brief">
+        <div><dt>You play</dt><dd data-slot="brief"></dd></div>
+        <div><dt>Calling you</dt><dd data-slot="agent"></dd></div>
+      </dl>
+      <div class="wd-callout">
+        <span class="wd-callout-label">Before you start</span>
+        <p>
+          The call uses your microphone and lasts up to two minutes. To run it, your voice goes to Deepgram,
+          Cartesia and Groq. Calls aren't recorded; the transcript is kept for a day so you can see how it went.
+        </p>
+      </div>
+      <p class="call-problem" data-slot="problem" role="alert" hidden></p>
+      <div class="call-actions">
+        <button class="wd-btn wd-btn--primary" type="button" data-go>Start the call</button>
+      </div>
+    </section>
+
+    <section class="call-stage" data-stage="call" hidden>
+      <div class="wd-call">
+        <div class="wd-call-head">
+          <span class="wd-avatar wd-avatar--lg wd-avatar--blue" data-slot="initial" aria-hidden="true">A</span>
+          <div class="wd-call-who">
+            <span class="wd-call-name" data-slot="name"></span>
+            <span class="wd-call-meta" data-slot="meta" aria-live="off"></span>
+          </div>
+          <span class="wd-status wd-status--dialing" data-slot="status"><span class="wd-status-dot" aria-hidden="true"></span><span data-slot="status-text">Connecting</span></span>
+        </div>
+        <div class="wd-wave" data-slot="wave" aria-hidden="true">{WAVE.map((h) => <i style={`height:${h}px`}></i>)}</div>
+        <ul class="wd-bubbles call-bubbles" data-slot="bubbles" aria-label="Transcript" aria-live="polite"></ul>
+      </div>
+      <div class="call-written" data-slot="written" hidden>
+        <p class="wd-label">Written down so far</p>
+        <div class="wd-results" data-slot="results"></div>
+      </div>
+      <p class="call-problem" data-slot="call-problem" role="alert" hidden></p>
+      <div class="call-actions">
+        <button class="wd-btn wd-btn--secondary call-hangup" type="button" data-hangup>Hang up</button>
+      </div>
+    </section>
+  </div>
+</dialog>
+
+<script>
+  import { DemoError, startSession, type Plan, type PlanField } from "../demo/client";
+  import { LiveCall, prepareAudio } from "../demo/call";
+
+  /** What a "Start the call" button sends. */
+  interface CallRequest {
+    request: { use_case: string } | { plan: Plan };
+    agent: Plan["agent"];
+    brief: string;
+    fields: PlanField[];
+  }
+
+  const ENDED: Record<string, string> = {
+    agent_ended: "The agent wrapped up the call.",
+    hung_up: "You hung up.",
+    time_limit: "The call reached its two-minute limit.",
+    silence: "The call ended after a long silence.",
+    disconnected: "The call was disconnected.",
+    error: "The call ended because of a problem.",
+  };
+
+  const dialog = document.querySelector<HTMLDialogElement>("[data-call-dialog]");
+  if (dialog) setUp(dialog);
+
+  /** Wires the dialog; see the component comment. */
+  function setUp(dialog: HTMLDialogElement) {
+    const slot = (name: string) => dialog.querySelector<HTMLElement>(`[data-slot="${name}"]`)!;
+    const stage = (name: "brief" | "call") =>
+      dialog.querySelectorAll<HTMLElement>("[data-stage]").forEach((s) => (s.hidden = s.dataset.stage !== name));
+    const go = dialog.querySelector<HTMLButtonElement>("[data-go]")!;
+    const hangup = dialog.querySelector<HTMLButtonElement>("[data-hangup]")!;
+
+    let current: CallRequest | null = null;
+    let call: LiveCall | null = null;
+    let timer = 0;
+    let wave = 0;
+
+    document.addEventListener("offhook:call", (e) => {
+      current = (e as CustomEvent<CallRequest>).detail;
+      const a = current.agent;
+      slot("title").textContent = `Talk to ${a.name} from ${a.company}`;
+      slot("brief").textContent = current.brief;
+      slot("agent").textContent = `${a.name}, ${a.role} at ${a.company}`;
+      problem("problem", null);
+      go.disabled = false;
+      go.textContent = "Start the call";
+      stage("brief");
+      dialog.showModal();
+    });
+
+    go.addEventListener("click", async () => {
+      if (!current) return;
+      go.disabled = true;
+      problem("problem", null);
+      let prepared: Awaited<ReturnType<typeof prepareAudio>>;
+      try {
+        go.textContent = "Allow the microphone…";
+        prepared = await prepareAudio();
+      } catch (e) {
+        go.disabled = false;
+        go.textContent = "Start the call";
+        return problem("problem", (e as Error).message);
+      }
+      try {
+        go.textContent = "Connecting…";
+        const session = await startSession(current.request);
+        begin(session.max_seconds, current);
+        call = new LiveCall(session, prepared, {
+          onLive: () => live(session.max_seconds),
+          onTranscript: (who, text) => bubble(who, text),
+          onResult: (key, value) => result(current!.fields, key, value),
+          onWrapUp: () => (slot("meta").textContent = "Wrapping up"),
+          onEnded: (reason, message) => ended(reason, message),
+        });
+        call.connect();
+      } catch (e) {
+        prepared.audio.stop();
+        go.disabled = false;
+        go.textContent = "Start the call";
+        problem("problem", e instanceof DemoError ? e.message : "Something went wrong. Try again in a moment.");
+      }
+    });
+
+    hangup.addEventListener("click", () => call?.hangUp());
+    dialog.querySelector("[data-close]")!.addEventListener("click", () => dialog.close());
+    // Closing (button or Escape) always ends a call in progress.
+    dialog.addEventListener("close", () => call?.hangUp());
+
+    /** Shows the call card in its connecting state. */
+    function begin(maxSeconds: number, req: CallRequest) {
+      slot("initial").textContent = req.agent.name[0] ?? "A";
+      slot("name").textContent = `${req.agent.name} from ${req.agent.company}`;
+      slot("meta").textContent = `Up to ${Math.round(maxSeconds / 60)} minutes`;
+      status("dialing", "Connecting");
+      slot("bubbles").replaceChildren();
+      slot("results").replaceChildren();
+      slot("written").hidden = true;
+      problem("call-problem", null);
+      hangup.hidden = false;
+      hangup.textContent = "Hang up";
+      stage("call");
+      hangup.focus();
+    }
+
+    /** The socket is open: start the countdown and the waveform. */
+    function live(maxSeconds: number) {
+      status("live", "On the call");
+      const end = Date.now() + maxSeconds * 1000;
+      const tick = () => {
+        const left = Math.max(0, Math.round((end - Date.now()) / 1000));
+        if (slot("meta").textContent !== "Wrapping up") slot("meta").textContent = `${Math.floor(left / 60)}:${String(left % 60).padStart(2, "0")} left`;
+      };
+      tick();
+      timer = window.setInterval(tick, 1000);
+      wave = window.setInterval(() => slot("wave").classList.toggle("wd-wave--live", Boolean(call?.agentSpeaking)), 150);
+    }
+
+    /**
+     * Adds a transcript line, joining it to the last bubble when the same person is
+     * still talking (speech-to-text splits long turns). Set as text, never HTML.
+     */
+    function bubble(who: "agent" | "person", text: string) {
+      const list = slot("bubbles");
+      const last = list.lastElementChild as HTMLElement | null;
+      if (last?.dataset.who === who) {
+        last.textContent = `${last.textContent} ${text}`;
+      } else {
+        const li = document.createElement("li");
+        li.className = who === "agent" ? "wd-bubble" : "wd-bubble wd-bubble--caller";
+        li.dataset.who = who;
+        li.textContent = text;
+        list.append(li);
+      }
+      list.scrollTop = list.scrollHeight;
+    }
+
+    /** Shows (or updates) a written-down answer, labelled from the plan. */
+    function result(fields: PlanField[], key: string, value: unknown) {
+      const field = fields.find((f) => f.key === key);
+      if (!field) return; // the server only reports the plan's fields; ignore anything else
+      const box = slot("results");
+      let tile = box.querySelector<HTMLElement>(`[data-key="${CSS.escape(key)}"]`);
+      if (!tile) {
+        tile = document.createElement("div");
+        tile.className = "wd-result";
+        tile.dataset.key = key;
+        tile.append(Object.assign(document.createElement("span"), { textContent: field.label }), document.createElement("strong"));
+        box.append(tile);
+      }
+      tile.querySelector("strong")!.textContent = shown(value);
+      slot("written").hidden = false;
+    }
+
+    /** The call is over: say why, and leave the transcript on screen. */
+    function ended(reason: string | null, message?: string) {
+      clearInterval(timer);
+      clearInterval(wave);
+      slot("wave").classList.remove("wd-wave--live");
+      call = null;
+      if (message) {
+        status("failed", "Call ended");
+        problem("call-problem", message);
+      } else {
+        status("done", "Call ended");
+      }
+      slot("meta").textContent = ENDED[reason ?? ""] ?? "The call has ended.";
+      hangup.hidden = true;
+    }
+
+    function status(kind: "dialing" | "live" | "done" | "failed", text: string) {
+      slot("status").className = `wd-status wd-status--${kind}`;
+      slot("status-text").textContent = text;
+    }
+
+    function problem(name: string, message: string | null) {
+      const el = slot(name);
+      el.textContent = message ?? "";
+      el.hidden = !message;
+    }
+  }
+
+  /** Shows recorded values the way people say them. */
+  function shown(v: unknown): string {
+    if (v === true || v === "true" || v === "yes") return "Yes";
+    if (v === false || v === "false" || v === "no") return "No";
+    return v === null || v === undefined || v === "" ? "—" : String(v);
+  }
+</script>

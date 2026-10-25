@@ -393,6 +393,14 @@ class _Watcher(BaseObserver):
                 self._results_sent.add(frame.tool_call_id)
                 args = frame.arguments or {}
                 await self._call.send({"type": "result", "key": str(args.get("key", "")), "value": _value(args.get("value"))})
+            elif (
+                isinstance(frame, FunctionCallInProgressFrame)
+                and frame.function_name == "end_call"
+                and frame.tool_call_id not in self._results_sent
+            ):
+                # The agent is hanging up; the socket closes once its goodbye has played.
+                self._results_sent.add(frame.tool_call_id)
+                await self._call.send({"type": "ended", "reason": "agent_ended"})
 
         # TranscriptCollector appends turns to the outcome; stream any new ones.
         turns = self._call.transcript

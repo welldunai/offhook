@@ -190,6 +190,7 @@ async def test_watcher_streams_turns_and_results_once_and_tracks_speaking():
         {"type": "transcript", "who": "agent", "text": "Hi"},
         {"type": "transcript", "who": "person", "text": "Thursday"},
         {"type": "result", "key": "new_day", "value": "Thursday"},
+        {"type": "ended", "reason": "agent_ended"},
     ]
     assert call.latency_ms == [500]
 

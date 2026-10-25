@@ -7,6 +7,7 @@
 // `ideas` are other purposes that only fill the box, for pages that list the use cases
 // already and want starting points that aren't repeats.
 import { USE_CASES } from "../use-cases";
+import CallDialog from "./CallDialog.astro";
 
 interface Props {
   examples?: boolean;
@@ -68,13 +69,21 @@ const { examples = true, ideas = [] } = Astro.props;
       <div><dt>You play</dt><dd data-slot="brief"></dd></div>
     </dl>
     <div class="plan-actions">
-      <button class="wd-btn wd-btn--primary" type="button" disabled>Start the call</button>
+      <button class="wd-btn wd-btn--primary" type="button" data-start disabled>Start the call</button>
     </div>
     <p class="plan-note" data-slot="note"></p>
   </section>
+  <CallDialog />
 
   {examples && USE_CASES.map((u) => (
-    <section class="plan" data-plan={u.slug} data-purpose={u.purpose} hidden aria-label={`Call plan: ${u.title}`}>
+    <section
+      class="plan"
+      data-plan={u.slug}
+      data-purpose={u.purpose}
+      data-call={JSON.stringify({ request: { use_case: u.slug }, agent: u.agent, brief: u.brief, fields: u.fields.map(({ key, label }) => ({ key, label })) })}
+      hidden
+      aria-label={`Call plan: ${u.title}`}
+    >
       <div class="plan-head">
         <span class="plan-title">Here’s the plan</span>
         <span class="wd-badge">Example</span>
@@ -87,10 +96,10 @@ const { examples = true, ideas = [] } = Astro.props;
         <div><dt>You play</dt><dd>{u.brief}</dd></div>
       </dl>
       <div class="plan-actions">
-        <button class="wd-btn wd-btn--primary" type="button" disabled>Start the call</button>
+        <button class="wd-btn wd-btn--primary" type="button" data-start disabled>Start the call</button>
         <a class="wd-btn wd-btn--secondary" href={`/use-cases/${u.slug}/`}>Hear a sample call</a>
       </div>
-      <p class="plan-note">Live calls in your browser open soon. Until then, hear how this call goes in the sample.</p>
+      <p class="plan-note" data-live-note="You talk to the agent in your browser, playing the other side of the call.">Live calls in your browser open soon. Until then, hear how this call goes in the sample.</p>
     </section>
   ))}
 </div>
@@ -108,6 +117,19 @@ const { examples = true, ideas = [] } = Astro.props;
     const custom = root.querySelector<HTMLElement>('[data-plan="custom"]')!;
     const plans = [...root.querySelectorAll<HTMLElement>("[data-plan]:not([data-plan=custom])")];
     let planned = ""; // the purpose the custom plan was made for
+
+    // "Start the call" opens the call dialog (CallDialog.astro).
+    if (demoEnabled) {
+      for (const btn of root.querySelectorAll<HTMLButtonElement>("[data-start]")) {
+        btn.disabled = false;
+        btn.addEventListener("click", () => {
+          const section = btn.closest<HTMLElement>("[data-plan]")!;
+          const detail = section.dataset.call ? JSON.parse(section.dataset.call) : null;
+          if (detail) document.dispatchEvent(new CustomEvent("offhook:call", { detail }));
+        });
+      }
+      for (const note of root.querySelectorAll<HTMLElement>("[data-live-note]")) note.textContent = note.dataset.liveNote!;
+    }
     const chips = [...root.querySelectorAll<HTMLButtonElement>("[data-example]")];
     const ideas = [...root.querySelectorAll<HTMLButtonElement>("[data-idea]")];
 
@@ -173,6 +195,7 @@ const { examples = true, ideas = [] } = Astro.props;
           tell(`We can't plan that call. ${res.reason}`);
         } else {
           fill(custom, res.plan, res.plans_left);
+          custom.dataset.call = JSON.stringify({ request: { plan: res.plan }, agent: res.plan.agent, brief: res.plan.brief, fields: res.plan.fields });
           planned = purpose;
           show("custom");
           custom.scrollIntoView({ block: "nearest", behavior: matchMedia("(prefers-reduced-motion: reduce)").matches ? "auto" : "smooth" });
@@ -205,7 +228,6 @@ const { examples = true, ideas = [] } = Astro.props;
     };
     list("fields", plan.fields.map((f) => f.label));
     list("facts", Object.entries(plan.assumptions).map(([k, v]) => `${k.replace(/_/g, " ")}: ${v}`));
-    slot("note").textContent =
-      `Live calls in your browser open soon. ${left === 1 ? "1 plan" : `${left} plans`} left today.`;
+    slot("note").textContent = `You talk to the agent in your browser, playing the other side of the call. ${left === 1 ? "1 plan" : `${left} plans`} left today.`;
   }
 </script>
