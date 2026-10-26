@@ -37,6 +37,7 @@ export default function GetStarted({ totalCalls }: { totalCalls: number }) {
   const first = agents.data?.[0];
   const hasAgent = Boolean(first);
   const hasLine = Boolean(conns.data?.some((c) => c.provider_kind === "telephony"));
+  const lineAgent = agents.data?.find((a) => a.telephony_connection_id);
   const steps: Step[] = [
     {
       title: "Create your first agent",
@@ -61,7 +62,8 @@ export default function GetStarted({ totalCalls }: { totalCalls: number }) {
       title: "Make a phone call",
       hint: "Call your own phone first. The transcript and results land in Calls.",
       done: totalCalls > 0,
-      action: hasAgent && hasLine ? { label: "Place a call", to: "/calls?new=1" } : undefined,
+      action: lineAgent ? { label: "Place a call", to: "/calls?new=1" }
+        : hasAgent && hasLine ? { label: "Give the line to an agent", to: "/agents" } : undefined,
       waiting: "Needs an agent with a phone line.",
     },
     {

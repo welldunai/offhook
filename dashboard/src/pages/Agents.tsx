@@ -18,6 +18,7 @@ export default function Agents() {
   // false: closed; "pick": choose a template first; a template: start from it.
   const [open, setOpen] = useState<false | "pick" | AgentTemplate>(() => (params.get("new") ? "pick" : false));
   const [talking, setTalking] = useState<{ agent: Agent; context?: Record<string, unknown> } | null>(null);
+  const [editing, setEditing] = useState<Agent | null>(null);
   const linked = agents.data?.find((a) => a.id === params.get("talk"));
   const talk = talking ?? (linked ? { agent: linked } : null);
   const closeTalk = () => { setTalking(null); if (params.has("talk")) setParams({}, { replace: true }); };
@@ -62,6 +63,7 @@ export default function Agents() {
                       <button className="btn btn-ghost btn-sm" onClick={() => setTalking({ agent: a })} title="Talk to this agent in your browser">
                         <Icon name="calls" size={13} /> Talk
                       </button>
+                      <button className="btn btn-ghost btn-sm" onClick={() => setEditing(a)}>Edit</button>
                       <button className="btn btn-danger btn-sm" onClick={() => del(a.id)} aria-label={`Delete ${a.name}`}><Icon name="trash" size={13} /></button>
                     </div>
                   </td>
@@ -72,6 +74,12 @@ export default function Agents() {
         )}
       </div>
       {talk && <TalkModal agent={talk.agent} initialContext={talk.context} onClose={closeTalk} />}
+      {editing && ready && (
+        <CreateModal conns={conns.data || []} tools={tools.data || []} managed={providers.data?.managed}
+          initialTemplate={null} editing={editing}
+          onClose={() => setEditing(null)}
+          onDone={() => { setEditing(null); agents.reload(); toast("Saved"); }} />
+      )}
       {open && ready && (
         <CreateModal conns={conns.data || []} tools={tools.data || []} managed={providers.data?.managed}
           initialTemplate={open === "pick" ? null : open}
@@ -108,19 +116,31 @@ const PROVIDER_NAME: Record<string, string> = { deepgram: "Deepgram", cartesia: 
  * New agent: pick a template, edit the essentials, save, and go straight to
  * talking to it. Providers, model and tools are folded away with sensible defaults.
  */
-function CreateModal({ conns, tools, managed, initialTemplate, onClose, onDone }: {
+function CreateModal({ conns, tools, managed, initialTemplate, editing, onClose, onDone }: {
   conns: Connection[]; tools: Tool[]; managed: Managed; initialTemplate: AgentTemplate | null;
+  /** An existing agent to edit instead of creating one. */
+  editing?: Agent;
   onClose: () => void; onDone: (agent: Agent, context: Record<string, unknown>) => void;
 }) {
-  const [template, setTemplate] = useState<AgentTemplate | null>(initialTemplate);
-  const [f, setF] = useState(() => ({
+  const [template, setTemplate] = useState<AgentTemplate | null>(editing ? BLANK : initialTemplate);
+  const [f, setF] = useState(() => editing ? {
+    name: editing.name, company: editing.company ?? "", instructions: editing.instructions,
+    first_message: editing.first_message ?? "", voice_id: editing.voice_id ?? "", llm_model: editing.llm_model ?? "",
+  } : {
     name: initialTemplate?.name ?? "", company: initialTemplate?.company ?? "",
     instructions: initialTemplate?.instructions ?? "", first_message: initialTemplate?.first_message ?? "",
     voice_id: "", llm_model: "",
-  }));
+  });
   // Offhook's providers are picked by default for any leg the workspace has no keys for;
   // otherwise the workspace's first connection of that kind.
   const [sel, setSel] = useState<Record<string, string>>(() => {
+    if (editing) {
+      const leg = (id: string | null) => id ?? (OFFHOOK as string);
+      return {
+        stt: leg(editing.stt_connection_id), tts: leg(editing.tts_connection_id), llm: leg(editing.llm_connection_id),
+        ...(editing.telephony_connection_id ? { telephony: editing.telephony_connection_id } : {}),
+      };
+    }
     const start: Record<string, string> = {};
     for (const leg of ["stt", "tts", "llm"] as const) {
       const own = conns.find((c) => c.provider_kind === leg);
@@ -131,8 +151,8 @@ function CreateModal({ conns, tools, managed, initialTemplate, onClose, onDone }
     if (line) start.telephony = line.id;
     return start;
   });
-  const [toolIds, setToolIds] = useState<string[]>([]);
-  const [advanced, setAdvanced] = useState(false);
+  const [toolIds, setToolIds] = useState<string[]>(() => editing?.tool_ids ?? []);
+  const [advanced, setAdvanced] = useState(Boolean(editing));
   const [busy, setBusy] = useState(false);
   const toast = useToast();
 
@@ -151,14 +171,19 @@ function CreateModal({ conns, tools, managed, initialTemplate, onClose, onDone }
   async function save() {
     setBusy(true);
     try {
-      const agent = await api.createAgent({
+      const body = {
         name: f.name, company: f.company || null, instructions: f.instructions,
         first_message: f.first_message || null, voice_id: f.voice_id || null,
         llm_model: f.llm_model.trim() || null,
         stt_connection_id: connId("stt"), tts_connection_id: connId("tts"), llm_connection_id: connId("llm"),
         telephony_connection_id: sel.telephony || null,
         tool_ids: toolIds,
-      });
+      };
+      if (editing) {
+        onDone(await api.updateAgent(editing.id, body), {});
+        return;
+      }
+      const agent = await api.createAgent(body);
       toast(`${agent.name} is ready. Say hello.`);
       onDone(agent, template?.context ?? {});
     } catch (e) { toast((e as Error).message); } finally { setBusy(false); }
@@ -186,10 +211,12 @@ function CreateModal({ conns, tools, managed, initialTemplate, onClose, onDone }
   }
 
   return (
-    <Modal title={template.id === "blank" ? "New agent" : template.title} onClose={onClose}
+    <Modal title={editing ? `Edit ${editing.name}` : template.id === "blank" ? "New agent" : template.title} onClose={onClose}
       footer={<>
-        <button className="btn btn-ghost" onClick={() => setTemplate(null)}>Back</button>
-        <button className="btn btn-primary" onClick={save} disabled={busy || !ready}>{busy ? "Saving…" : "Create and talk to it"}</button>
+        <button className="btn btn-ghost" onClick={editing ? onClose : () => setTemplate(null)}>{editing ? "Cancel" : "Back"}</button>
+        <button className="btn btn-primary" onClick={save} disabled={busy || !ready}>
+          {busy ? "Saving…" : editing ? "Save changes" : "Create and talk to it"}
+        </button>
       </>}>
       <div className="cols-2 grid" style={{ gap: 12 }}>
         <Field label="Name"><input className="input" value={f.name} onChange={(e) => set("name", e.target.value)} placeholder="Alex" /></Field>
@@ -225,6 +252,7 @@ function CreateModal({ conns, tools, managed, initialTemplate, onClose, onDone }
                       ...(k !== "telephony" && managed?.[k]
                         ? [{ value: OFFHOOK, label: `Offhook's ${PROVIDER_NAME[managed[k]!] ?? managed[k]} (free)` }]
                         : []),
+                      ...(k === "telephony" && sel.telephony ? [{ value: "", label: "No phone line" }] : []),
                       ...byKind(k).map((c) => ({ value: c.id, label: `${c.name} (${c.provider_name})` })),
                     ]} />
                 </Field>

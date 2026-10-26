@@ -66,6 +66,26 @@ class AgentCreate(BaseModel):
     tool_ids: list[uuid.UUID] = Field(default_factory=list)
 
 
+class AgentUpdate(BaseModel):
+    """Fields to change on an agent; anything left out stays as it is. Send null on a
+    stt/tts/llm connection to switch that leg to Offhook's own provider, or on
+    telephony_connection_id to remove the phone line."""
+
+    name: str | None = Field(default=None, min_length=1, max_length=128)
+    company: str | None = None
+    role: str | None = None
+    instructions: str | None = Field(default=None, min_length=1)
+    first_message: str | None = None
+    voice_id: str | None = None
+    llm_model: str | None = None
+    stt_connection_id: uuid.UUID | None = None
+    tts_connection_id: uuid.UUID | None = None
+    llm_connection_id: uuid.UUID | None = None
+    telephony_connection_id: uuid.UUID | None = None
+    provider_settings: dict[str, Any] | None = None
+    tool_ids: list[uuid.UUID] | None = None
+
+
 class AgentOut(BaseModel):
     id: uuid.UUID
     name: str

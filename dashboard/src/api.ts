@@ -2,6 +2,8 @@
 // The dashboard authenticates with a tenant API key (Bearer), stored locally.
 
 const BASE = (import.meta.env.VITE_API_URL as string) || "http://localhost:8000";
+/** The API's public address (carriers call it, e.g. /v1/telephony/inbound). */
+export const API_BASE = BASE;
 
 // The dashboard authenticates with the signed-in user's Clerk session token.
 // App.tsx wires this up from Clerk's getToken() once the user is signed in.
@@ -106,6 +108,8 @@ export interface Agent {
   company: string | null;
   instructions: string;
   first_message: string | null;
+  voice_id?: string | null;
+  llm_model?: string | null;
   stt_connection_id: string | null;
   tts_connection_id: string | null;
   llm_connection_id: string | null;
@@ -223,6 +227,8 @@ export const api = {
   agents: () => req<Agent[]>("/v1/agents"),
   createAgent: (b: Record<string, unknown>) =>
     req<Agent>("/v1/agents", { method: "POST", body: JSON.stringify(b) }),
+  updateAgent: (id: string, b: Record<string, unknown>) =>
+    req<Agent>(`/v1/agents/${id}`, { method: "PATCH", body: JSON.stringify(b) }),
   deleteAgent: (id: string) => req<void>(`/v1/agents/${id}`, { method: "DELETE" }),
 
   tools: () => req<Tool[]>("/v1/tools"),

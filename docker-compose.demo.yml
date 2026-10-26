@@ -35,7 +35,9 @@ services:
   cloudflared:
     image: cloudflare/cloudflared:2026.9.3
     profiles: ["tunnel"]
-    command: ["tunnel", "--no-autoupdate", "run"]
+    # HTTP/2 over TCP 443 rather than QUIC (UDP), which networks and sleep/wake often
+    # block: on 2026-10-26 the tunnel spent hours failing to dial over QUIC.
+    command: ["tunnel", "--no-autoupdate", "--protocol", "http2", "run"]
     environment:
       # Only the tunnel token, not the provider keys. In the Cloudflare dashboard,
       # the tunnel's public hostname voice.offhook.welldun.ai points at http://voice:8765.
