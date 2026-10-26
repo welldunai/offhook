@@ -1,16 +1,26 @@
 import { useState } from "react";
+import { useSearchParams } from "react-router-dom";
 import { type Agent, api, type Connection, type Tool } from "../api";
 import { Page, useAsync } from "../hooks";
-import { Spinner, Empty, Modal, Field, Select, Icon, fmtDate, useToast } from "../ui";
+import { BLANK, TEMPLATES, type AgentTemplate } from "../templates";
+import { Spinner, Modal, Field, Select, Icon, fmtDate, useToast } from "../ui";
 import TalkModal from "./TalkModal";
+
+type Managed = { stt: string | null; tts: string | null; llm: string | null } | undefined;
 
 export default function Agents() {
   const agents = useAsync(() => api.agents(), []);
   const conns = useAsync(() => api.connections(), []);
   const tools = useAsync(() => api.tools(), []);
   const providers = useAsync(() => api.providers(), []);
-  const [open, setOpen] = useState(false);
-  const [talking, setTalking] = useState<Agent | null>(null);
+  // Links from the Overview checklist: ?new=1 opens the form, ?talk=<id> opens a test call.
+  const [params, setParams] = useSearchParams();
+  // false: closed; "pick": choose a template first; a template: start from it.
+  const [open, setOpen] = useState<false | "pick" | AgentTemplate>(() => (params.get("new") ? "pick" : false));
+  const [talking, setTalking] = useState<{ agent: Agent; context?: Record<string, unknown> } | null>(null);
+  const linked = agents.data?.find((a) => a.id === params.get("talk"));
+  const talk = talking ?? (linked ? { agent: linked } : null);
+  const closeTalk = () => { setTalking(null); if (params.has("talk")) setParams({}, { replace: true }); };
   const toast = useToast();
 
   async function del(id: string) {
@@ -19,12 +29,24 @@ export default function Agents() {
     catch (e) { toast((e as Error).message); }
   }
 
+  const ready = !providers.loading && !conns.loading;
+
   return (
-    <Page title="Agents" sub="Reusable personas — instructions, voice, and the connections they run on."
-      actions={<button className="btn btn-primary" onClick={() => setOpen(true)}><Icon name="plus" size={15} /> New agent</button>}>
+    <Page title="Agents" sub="Who calls, what they say, and what they write down. Talk to one in your browser before it calls anyone."
+      actions={<button className="btn btn-primary" onClick={() => setOpen("pick")}><Icon name="plus" size={15} /> New agent</button>}>
       <div className="card">
         {agents.loading ? <Spinner /> : !agents.data?.length ? (
-          <Empty title="No agents" hint="Create an agent to place calls with." icon="agents" />
+          <div className="first-agent">
+            <h2 className="first-agent-title">Create your first agent</h2>
+            <p className="muted">Start from a template. No keys needed: it runs on Offhook's providers until you add your own.</p>
+            <div className="template-grid">
+              {TEMPLATES.map((t) => (
+                <button key={t.id} type="button" className="template-card" onClick={() => setOpen(t)}>
+                  <strong>{t.title}</strong><span>{t.blurb}</span>
+                </button>
+              ))}
+            </div>
+          </div>
         ) : (
           <table className="table">
             <thead><tr><th>Name</th><th>Company</th><th>Instructions</th><th>Created</th><th></th></tr></thead>
@@ -37,7 +59,7 @@ export default function Agents() {
                   <td className="muted">{fmtDate(a.created_at)}</td>
                   <td>
                     <div className="row" style={{ justifyContent: "flex-end", gap: 8 }}>
-                      <button className="btn btn-ghost btn-sm" onClick={() => setTalking(a)} title="Talk to this agent in your browser">
+                      <button className="btn btn-ghost btn-sm" onClick={() => setTalking({ agent: a })} title="Talk to this agent in your browser">
                         <Icon name="calls" size={13} /> Talk
                       </button>
                       <button className="btn btn-danger btn-sm" onClick={() => del(a.id)} aria-label={`Delete ${a.name}`}><Icon name="trash" size={13} /></button>
@@ -49,8 +71,13 @@ export default function Agents() {
           </table>
         )}
       </div>
-      {talking && <TalkModal agent={talking} onClose={() => setTalking(null)} />}
-      {open && <CreateModal conns={conns.data || []} tools={tools.data || []} managed={providers.data?.managed} onClose={() => setOpen(false)} onDone={() => { setOpen(false); agents.reload(); }} />}
+      {talk && <TalkModal agent={talk.agent} initialContext={talk.context} onClose={closeTalk} />}
+      {open && ready && (
+        <CreateModal conns={conns.data || []} tools={tools.data || []} managed={providers.data?.managed}
+          initialTemplate={open === "pick" ? null : open}
+          onClose={() => { setOpen(false); if (params.has("new")) setParams({}, { replace: true }); }}
+          onDone={(agent, context) => { setOpen(false); agents.reload(); setTalking({ agent, context }); }} />
+      )}
     </Page>
   );
 }
@@ -77,20 +104,35 @@ const LEG_LABEL: Record<string, string> = {
 };
 const PROVIDER_NAME: Record<string, string> = { deepgram: "Deepgram", cartesia: "Cartesia", groq: "Groq" };
 
-function CreateModal({ conns, tools, managed, onClose, onDone }: {
-  conns: Connection[]; tools: Tool[]; managed?: { stt: string | null; tts: string | null; llm: string | null };
-  onClose: () => void; onDone: () => void;
+/**
+ * New agent: pick a template, edit the essentials, save, and go straight to
+ * talking to it. Providers, model and tools are folded away with sensible defaults.
+ */
+function CreateModal({ conns, tools, managed, initialTemplate, onClose, onDone }: {
+  conns: Connection[]; tools: Tool[]; managed: Managed; initialTemplate: AgentTemplate | null;
+  onClose: () => void; onDone: (agent: Agent, context: Record<string, unknown>) => void;
 }) {
-  const [f, setF] = useState({ name: "", company: "", instructions: "", first_message: "", voice_id: "", llm_model: "" });
-  // Offhook's providers are picked by default for any leg the workspace has no keys for.
+  const [template, setTemplate] = useState<AgentTemplate | null>(initialTemplate);
+  const [f, setF] = useState(() => ({
+    name: initialTemplate?.name ?? "", company: initialTemplate?.company ?? "",
+    instructions: initialTemplate?.instructions ?? "", first_message: initialTemplate?.first_message ?? "",
+    voice_id: "", llm_model: "",
+  }));
+  // Offhook's providers are picked by default for any leg the workspace has no keys for;
+  // otherwise the workspace's first connection of that kind.
   const [sel, setSel] = useState<Record<string, string>>(() => {
     const start: Record<string, string> = {};
     for (const leg of ["stt", "tts", "llm"] as const) {
-      if (managed?.[leg] && !conns.some((c) => c.provider_kind === leg)) start[leg] = OFFHOOK;
+      const own = conns.find((c) => c.provider_kind === leg);
+      if (own) start[leg] = own.id;
+      else if (managed?.[leg]) start[leg] = OFFHOOK;
     }
+    const line = conns.find((c) => c.provider_kind === "telephony");
+    if (line) start.telephony = line.id;
     return start;
   });
   const [toolIds, setToolIds] = useState<string[]>([]);
+  const [advanced, setAdvanced] = useState(false);
   const [busy, setBusy] = useState(false);
   const toast = useToast();
 
@@ -101,10 +143,15 @@ function CreateModal({ conns, tools, managed, onClose, onDone }: {
   const toggleTool = (id: string) =>
     setToolIds((ids) => (ids.includes(id) ? ids.filter((x) => x !== id) : [...ids, id]));
 
+  function pick(t: AgentTemplate) {
+    setTemplate(t);
+    setF((s) => ({ ...s, name: t.name, company: t.company, instructions: t.instructions, first_message: t.first_message }));
+  }
+
   async function save() {
     setBusy(true);
     try {
-      await api.createAgent({
+      const agent = await api.createAgent({
         name: f.name, company: f.company || null, instructions: f.instructions,
         first_message: f.first_message || null, voice_id: f.voice_id || null,
         llm_model: f.llm_model.trim() || null,
@@ -112,72 +159,110 @@ function CreateModal({ conns, tools, managed, onClose, onDone }: {
         telephony_connection_id: sel.telephony || null,
         tool_ids: toolIds,
       });
-      toast("Agent created"); onDone();
+      toast(`${agent.name} is ready. Say hello.`);
+      onDone(agent, template?.context ?? {});
     } catch (e) { toast((e as Error).message); } finally { setBusy(false); }
   }
 
   const ready = f.name && f.instructions && sel.stt && sel.tts && sel.llm;
+  const summary = (["stt", "tts", "llm"] as const).map((leg) =>
+    sel[leg] === OFFHOOK ? `Offhook's ${PROVIDER_NAME[managed?.[leg] ?? ""] ?? managed?.[leg]}`
+      : conns.find((c) => c.id === sel[leg])?.name ?? "not set").join(", ");
+
+  if (!template) {
+    return (
+      <Modal title="New agent" onClose={onClose}
+        footer={<button className="btn btn-ghost" onClick={onClose}>Cancel</button>}>
+        <p className="muted" style={{ marginTop: 0 }}>Start from a template and change anything, or start from scratch.</p>
+        <div className="template-list">
+          {[...TEMPLATES, BLANK].map((t) => (
+            <button key={t.id} type="button" className="template-card" onClick={() => pick(t)}>
+              <strong>{t.title}</strong><span>{t.blurb}</span>
+            </button>
+          ))}
+        </div>
+      </Modal>
+    );
+  }
 
   return (
-    <Modal title="New agent" onClose={onClose}
+    <Modal title={template.id === "blank" ? "New agent" : template.title} onClose={onClose}
       footer={<>
-        <button className="btn btn-ghost" onClick={onClose}>Cancel</button>
-        <button className="btn btn-primary" onClick={save} disabled={busy || !ready}>{busy ? "Saving…" : "Create agent"}</button>
+        <button className="btn btn-ghost" onClick={() => setTemplate(null)}>Back</button>
+        <button className="btn btn-primary" onClick={save} disabled={busy || !ready}>{busy ? "Saving…" : "Create and talk to it"}</button>
       </>}>
-      <Field label="Name"><input className="input" value={f.name} onChange={(e) => set("name", e.target.value)} placeholder="Alex" /></Field>
-      <Field label="Company"><input className="input" value={f.company} onChange={(e) => set("company", e.target.value)} placeholder="Acme Clinic" /></Field>
-      <Field label="Instructions" hint="The agent's behaviour and goal.">
-        <textarea className="input" value={f.instructions} onChange={(e) => set("instructions", e.target.value)}
+      <div className="cols-2 grid" style={{ gap: 12 }}>
+        <Field label="Name"><input className="input" value={f.name} onChange={(e) => set("name", e.target.value)} placeholder="Alex" /></Field>
+        <Field label="Company"><input className="input" value={f.company} onChange={(e) => set("company", e.target.value)} placeholder="Acme Clinic" /></Field>
+      </div>
+      <Field label="Instructions" hint="What the agent is for: what to ask, in what order, and what to write down.">
+        <textarea className="input" rows={6} value={f.instructions} onChange={(e) => set("instructions", e.target.value)}
           placeholder="You are calling to confirm a dental appointment…" />
       </Field>
-      <Field label="First message"><input className="input" value={f.first_message} onChange={(e) => set("first_message", e.target.value)} placeholder="Hi, this is Alex from Acme…" /></Field>
-      {(["stt", "tts", "llm", "telephony"] as const).map((k) => (
-        <div key={k}>
-          <Field label={LEG_LABEL[k]}
-            hint={k !== "telephony" && sel[k] === OFFHOOK ? "Offhook's account, free for now. Or pick your own connection." : undefined}>
-            <Select value={sel[k] || ""} onChange={(v) => setSel((s) => ({ ...s, [k]: v }))}
-              placeholder="Choose…"
-              emptyText={`No ${k === "telephony" ? "phone line" : LEG_LABEL[k].toLowerCase()} connections yet. Add one on Connections.`}
-              options={[
-                ...(k !== "telephony" && managed?.[k]
-                  ? [{ value: OFFHOOK, label: `Offhook's ${PROVIDER_NAME[managed[k]!] ?? managed[k]} (free)` }]
-                  : []),
-                ...byKind(k).map((c) => ({ value: c.id, label: `${c.name} (${c.provider_name})` })),
-              ]} />
-          </Field>
-          {k === "llm" && (
-            <Field label="Model"
-              hint={llmProvider ? `Leave blank to use the default: ${MODEL_DEFAULTS[llmProvider] || "provider default"}` : "Optional — defaults to the provider's model."}>
-              <input className="input mono" value={f.llm_model} onChange={(e) => set("llm_model", e.target.value)}
-                placeholder={llmProvider ? MODEL_DEFAULTS[llmProvider] || "model name" : "select an LLM connection first"} />
-              {llmProvider && MODEL_SUGGESTIONS[llmProvider] && (
-                <div className="wrap" style={{ marginTop: 8 }}>
-                  {MODEL_SUGGESTIONS[llmProvider].map((m) => (
-                    <button type="button" key={m} className="btn btn-ghost btn-sm"
-                      style={{ fontFamily: "var(--mono)", fontSize: 11.5 }}
-                      onClick={() => set("llm_model", m)}>{m}</button>
+      <Field label="Opening line" hint="The first thing the agent says when the call connects.">
+        <input className="input" value={f.first_message} onChange={(e) => set("first_message", e.target.value)} placeholder="Hi, this is Alex from Acme…" />
+      </Field>
+
+      <div className="advanced">
+        <button type="button" className="advanced-toggle" onClick={() => setAdvanced((a) => !a)} aria-expanded={advanced}>
+          <span>
+            <strong>Providers, phone line and tools</strong>
+            <span className="dim">{summary}{sel.telephony ? ", with a phone line" : ""}</span>
+          </span>
+          <span className={`advanced-chev${advanced ? " open" : ""}`}><Icon name="chev" size={16} /></span>
+        </button>
+        {advanced && (
+          <div className="advanced-body">
+            {(["stt", "tts", "llm", "telephony"] as const).map((k) => (
+              <div key={k}>
+                <Field label={LEG_LABEL[k]}
+                  hint={k === "telephony" ? "Only needed for real phone calls. Talking in the browser works without it."
+                    : sel[k] === OFFHOOK ? "Offhook's account, free for now. Or pick your own connection." : undefined}>
+                  <Select value={sel[k] || ""} onChange={(v) => setSel((s) => ({ ...s, [k]: v }))}
+                    placeholder={k === "telephony" ? "None" : "Choose…"}
+                    emptyText={`No ${k === "telephony" ? "phone line" : LEG_LABEL[k].toLowerCase()} connections yet. Add one on Connections.`}
+                    options={[
+                      ...(k !== "telephony" && managed?.[k]
+                        ? [{ value: OFFHOOK, label: `Offhook's ${PROVIDER_NAME[managed[k]!] ?? managed[k]} (free)` }]
+                        : []),
+                      ...byKind(k).map((c) => ({ value: c.id, label: `${c.name} (${c.provider_name})` })),
+                    ]} />
+                </Field>
+                {k === "llm" && (
+                  <Field label="Model"
+                    hint={llmProvider ? `Leave blank for the default: ${MODEL_DEFAULTS[llmProvider] || "the provider's"}` : "Optional."}>
+                    <input className="input mono" value={f.llm_model} onChange={(e) => set("llm_model", e.target.value)}
+                      placeholder={llmProvider ? MODEL_DEFAULTS[llmProvider] || "model name" : "model name"} />
+                    {llmProvider && MODEL_SUGGESTIONS[llmProvider] && (
+                      <div className="wrap" style={{ marginTop: 8 }}>
+                        {MODEL_SUGGESTIONS[llmProvider].map((m) => (
+                          <button type="button" key={m} className="btn btn-ghost btn-sm" style={{ fontFamily: "var(--mono)", fontSize: 12 }}
+                            onClick={() => set("llm_model", m)}>{m}</button>
+                        ))}
+                      </div>
+                    )}
+                  </Field>
+                )}
+              </div>
+            ))}
+            <Field label="Tools" hint="Functions the agent can call during a call to look things up.">
+              {!tools.length ? (
+                <div className="dim" style={{ fontSize: 13 }}>No tools yet. Create one on the Tools page.</div>
+              ) : (
+                <div style={{ display: "grid", gap: 6 }}>
+                  {tools.map((t) => (
+                    <label key={t.id} className="row" style={{ gap: 8, cursor: "pointer", fontSize: 14 }}>
+                      <input type="checkbox" checked={toolIds.includes(t.id)} onChange={() => toggleTool(t.id)} />
+                      <span className="mono" style={{ fontWeight: 600 }}>{t.name}</span>
+                      <span className="muted" style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{t.description}</span>
+                    </label>
                   ))}
                 </div>
               )}
             </Field>
-          )}
-        </div>
-      ))}
-      <Field label="Tools" hint="Functions the agent can call mid-call to fetch live data.">
-        {!tools.length ? (
-          <div className="dim" style={{ fontSize: 12.5 }}>No tools yet — create one on the Tools page.</div>
-        ) : (
-          <div style={{ display: "grid", gap: 6 }}>
-            {tools.map((t) => (
-              <label key={t.id} className="row" style={{ gap: 8, cursor: "pointer", fontSize: 13 }}>
-                <input type="checkbox" checked={toolIds.includes(t.id)} onChange={() => toggleTool(t.id)} />
-                <span className="mono" style={{ fontWeight: 600 }}>{t.name}</span>
-                <span className="muted" style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{t.description}</span>
-              </label>
-            ))}
           </div>
         )}
-      </Field>
+      </div>
     </Modal>
   );
 }

@@ -18,12 +18,12 @@ const SITE_URL = "https://offhook.welldun.ai/";
 
 const NAV = [
   { to: "/", icon: "overview", label: "Overview", end: true },
+  { to: "/agents", icon: "agents", label: "Agents" },
   { to: "/calls", icon: "calls", label: "Calls" },
   { sec: "Configure" },
-  { to: "/agents", icon: "agents", label: "Agents" },
-  { to: "/tools", icon: "tools", label: "Tools" },
   { to: "/connections", icon: "connections", label: "Connections" },
   { to: "/numbers", icon: "numbers", label: "Numbers" },
+  { to: "/tools", icon: "tools", label: "Tools" },
   { sec: "Developers" },
   { to: "/keys", icon: "keys", label: "API keys" },
   { to: "/webhooks", icon: "webhooks", label: "Webhooks" },

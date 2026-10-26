@@ -21,11 +21,15 @@ const WAVE = [8, 14, 20, 12, 24, 16, 10, 22, 18, 12, 26, 14, 9, 20, 16, 24, 11, 
 
 /**
  * The test-call dialog for one agent.
- * Args: agent — the agent to talk to; onClose — closes the dialog (hangs up first).
+ * Args: agent — the agent to talk to; onClose — closes the dialog (hangs up first);
+ *   initialContext — call context to start with (e.g. a template's sample facts).
  */
-export default function TalkModal({ agent, onClose }: { agent: Agent; onClose: () => void }) {
+export default function TalkModal({ agent, onClose, initialContext }: {
+  agent: Agent; onClose: () => void; initialContext?: Record<string, unknown>;
+}) {
   const [stage, setStage] = useState<Stage>("brief");
-  const [context, setContext] = useState("");
+  const [context, setContext] = useState(() =>
+    initialContext && Object.keys(initialContext).length ? JSON.stringify(initialContext, null, 2) : "");
   const [problem, setProblem] = useState<string | null>(null);
   const [turns, setTurns] = useState<Turn[]>([]);
   const [results, setResults] = useState<Record<string, unknown>>({});
@@ -70,6 +74,8 @@ export default function TalkModal({ agent, onClose }: { agent: Agent; onClose: (
       call.current = new LiveCall(t.ws_url, t.ticket, prepared, {
         onLive: () => {
           setStage("live");
+          // For the Overview checklist ("Talk to your agent"); test calls aren't stored.
+          try { localStorage.setItem("oh-talked", "1"); } catch { /* private mode */ }
           const end = Date.now() + t.max_seconds * 1000;
           const tick = () => setLeft(Math.max(0, Math.round((end - Date.now()) / 1000)));
           tick();

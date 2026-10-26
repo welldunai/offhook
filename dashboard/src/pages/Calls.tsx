@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { Link, useNavigate, useSearchParams } from "react-router-dom";
 import { api, type Agent } from "../api";
 import { Page, useAsync } from "../hooks";
 import { Badge, Spinner, Empty, Icon, Modal, Field, Select, fmtDur, fmtDate, shortId, useToast } from "../ui";
@@ -25,8 +25,12 @@ export default function Calls() {
   const [search, setSearch] = useState("");
   const [tagFilters, setTagFilters] = useState<string[]>([]);
   const [tagDraft, setTagDraft] = useState("");
-  const [placing, setPlacing] = useState(false);
+  // ?new=1 (from the Overview checklist) opens "New call".
+  const [params, setParams] = useSearchParams();
+  const [placing, setPlacing] = useState(() => params.has("new"));
+  const closePlacing = () => { setPlacing(false); if (params.has("new")) setParams({}, { replace: true }); };
   const [page, setPage] = useState(0);
+  const filtered = Boolean(status || direction || search.trim() || tagFilters.length);
   const nav = useNavigate();
   const PAGE_SIZE = 10;
 
@@ -98,8 +102,19 @@ export default function Calls() {
         {loading ? <Spinner /> : error ? (
           <div className="card-pad" style={{ color: "var(--rust)" }}>{error}</div>
         ) : !rows.length ? (
-          <Empty title={page > 0 ? "No calls on this page" : "No calls match"}
-            hint={page > 0 ? "Go back a page." : "Place a call or clear the filters."} icon="calls" />
+          page === 0 && !filtered ? (
+            <div className="empty">
+              <div style={{ fontWeight: 600, color: "var(--ink)", marginBottom: 6 }}>No phone calls yet</div>
+              <div style={{ marginBottom: 14 }}>Calls show up here with their transcripts and what the agent wrote down.</div>
+              <div className="row" style={{ justifyContent: "center" }}>
+                <Link className="btn btn-ghost btn-sm" to="/agents">Talk to an agent first</Link>
+                <button className="btn btn-primary btn-sm" onClick={() => setPlacing(true)}>Place a call</button>
+              </div>
+            </div>
+          ) : (
+            <Empty title={page > 0 ? "No calls on this page" : "No calls match"}
+              hint={page > 0 ? "Go back a page." : "Clear the filters to see every call."} icon="calls" />
+          )
         ) : (
           <table className="table">
             <thead>
@@ -148,7 +163,7 @@ export default function Calls() {
           </div>
         )}
       </div>
-      {placing && <PlaceCallModal onClose={() => setPlacing(false)} onPlaced={(id) => { setPlacing(false); reload(); nav(`/calls/${id}`); }} />}
+      {placing && <PlaceCallModal onClose={closePlacing} onPlaced={(id) => { closePlacing(); reload(); nav(`/calls/${id}`); }} />}
     </Page>
   );
 }

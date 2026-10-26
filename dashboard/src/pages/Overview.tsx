@@ -2,6 +2,7 @@ import { Link } from "react-router-dom";
 import { api } from "../api";
 import { Page, useAsync } from "../hooks";
 import { Badge, Spinner, Empty, fmtDur, timeAgo, shortId } from "../ui";
+import GetStarted from "./GetStarted";
 
 const STATUS_COLOR: Record<string, string> = {
   completed: "var(--pine)", failed: "var(--rust)", in_progress: "var(--amber)",
@@ -13,13 +14,15 @@ export default function Overview() {
   const recent = useAsync(() => api.calls({ limit: 6 }), []);
 
   return (
-    <Page title="Overview" sub="Your account at a glance — this calendar month.">
+    <Page title="Overview" sub="Your workspace this month.">
       {stats.loading ? (
         <Spinner />
       ) : stats.error ? (
         <div className="card card-pad" style={{ color: "var(--rust)" }}>{stats.error}</div>
       ) : stats.data && (
         <>
+          <GetStarted totalCalls={stats.data.total_calls} />
+          {stats.data.total_calls > 0 && (<>
           <div className="grid cols-4">
             <Stat label="Total calls" value={String(stats.data.total_calls)} />
             <Stat label="Failure rate" value={`${(stats.data.failure_rate * 100).toFixed(1)}`} unit="%"
@@ -52,7 +55,7 @@ export default function Overview() {
               <Link to="/calls" className="btn btn-ghost btn-sm">View all</Link>
             </div>
             {recent.loading ? <Spinner /> : !recent.data?.length ? (
-              <Empty title="No calls yet" hint="Place your first call via POST /v1/calls." icon="calls" />
+              <Empty title="No calls yet" hint="Phone calls you place show up here, with their transcripts. Talking to an agent in the browser doesn't count as a call." icon="calls" />
             ) : (
               <table className="table">
                 <thead><tr><th>Call</th><th>To</th><th>Status</th><th>Duration</th><th>When</th></tr></thead>
@@ -70,6 +73,7 @@ export default function Overview() {
               </table>
             )}
           </div>
+          </>)}
         </>
       )}
     </Page>

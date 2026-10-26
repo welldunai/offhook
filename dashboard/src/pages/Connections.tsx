@@ -1,15 +1,19 @@
 import { useState } from "react";
+import { useSearchParams } from "react-router-dom";
 import { api } from "../api";
 import { Page, useAsync } from "../hooks";
 import { Spinner, Empty, Modal, Field, Select, Icon, fmtDate, useToast } from "../ui";
 
 const KINDS = ["stt", "tts", "llm", "telephony"];
-const KIND_LABEL: Record<string, string> = { stt: "Speech-to-text", tts: "Text-to-speech", llm: "Language model", telephony: "Telephony" };
+const KIND_LABEL: Record<string, string> = { stt: "Speech to text", tts: "Voice", llm: "Language model", telephony: "Phone line" };
 
 export default function Connections() {
   const conns = useAsync(() => api.connections(), []);
   const provs = useAsync(() => api.providers(), []);
-  const [open, setOpen] = useState(false);
+  // ?new=<kind> (from the Overview checklist) opens the form on that kind.
+  const [params, setParams] = useSearchParams();
+  const [open, setOpen] = useState<false | string>(() => params.get("new") || false);
+  const close = () => { setOpen(false); if (params.has("new")) setParams({}, { replace: true }); };
   const toast = useToast();
 
   const supported = (provs.data?.supported as Record<string, string[]>) || {};
@@ -22,10 +26,10 @@ export default function Connections() {
 
   return (
     <Page title="Connections" sub="Your own provider keys, stored encrypted and never shown again. Optional for speech, voice and the language model: agents can use Offhook's instead. A phone line needs your own Twilio or Plivo."
-      actions={<button className="btn btn-primary" onClick={() => setOpen(true)}><Icon name="plus" size={15} /> New connection</button>}>
+      actions={<button className="btn btn-primary" onClick={() => setOpen("telephony")}><Icon name="plus" size={15} /> New connection</button>}>
       <div className="card">
         {conns.loading ? <Spinner /> : !conns.data?.length ? (
-          <Empty title="No connections" hint="Add provider keys to power your agents." icon="connections" />
+          <Empty title="No connections yet" hint="You don't need any to start: agents use Offhook's speech, voice and language model. Add a phone line (Twilio or Plivo) to make real calls, or your own keys to use your accounts." icon="connections" />
         ) : (
           <table className="table">
             <thead><tr><th>Name</th><th>Type</th><th>Provider</th><th>Added</th><th></th></tr></thead>
@@ -43,13 +47,13 @@ export default function Connections() {
           </table>
         )}
       </div>
-      {open && <CreateModal supported={supported} onClose={() => setOpen(false)} onDone={() => { setOpen(false); conns.reload(); }} />}
+      {open && <CreateModal supported={supported} initialKind={typeof open === "string" && open in KIND_LABEL ? open : "telephony"} onClose={close} onDone={() => { close(); conns.reload(); }} />}
     </Page>
   );
 }
 
-function CreateModal({ supported, onClose, onDone }: { supported: Record<string, string[]>; onClose: () => void; onDone: () => void }) {
-  const [kind, setKind] = useState("llm");
+function CreateModal({ supported, initialKind, onClose, onDone }: { supported: Record<string, string[]>; initialKind: string; onClose: () => void; onDone: () => void }) {
+  const [kind, setKind] = useState(initialKind);
   const [provider, setProvider] = useState("");
   const [name, setName] = useState("");
   const [secrets, setSecrets] = useState<Record<string, string>>({});
