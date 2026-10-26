@@ -46,7 +46,11 @@ export default function TalkModal({ agent, onClose, initialContext }: {
     call.current?.hangUp();
     timers.current.forEach(clearInterval);
   }, []);
-  useEffect(() => bottom.current?.scrollIntoView({ block: "nearest" }), [turns]);
+  // Braces matter: an effect must return nothing or a cleanup function, and newer
+  // browsers make scrollIntoView() return a promise, which React would call.
+  useEffect(() => {
+    bottom.current?.scrollIntoView({ block: "nearest" });
+  }, [turns]);
 
   async function start() {
     setProblem(null);

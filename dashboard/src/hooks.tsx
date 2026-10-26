@@ -30,6 +30,8 @@ export function useAsync<T>(fn: () => Promise<T>, deps: unknown[] = []) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, deps);
 
-  useEffect(() => run(), [run]);
+  useEffect(() => {
+    run();
+  }, [run]);
   return { data, error, loading, reload: run };
 }
