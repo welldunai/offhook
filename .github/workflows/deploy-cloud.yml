@@ -1,0 +1,31 @@
+# Deploys hosted Offhook to Cloudflare Containers (CLOUDFLARE.md) from GitHub's
+# runners: native linux/amd64 builds and a fast connection for the image upload.
+# Started by hand for now (Actions → Deploy to Cloudflare → Run workflow).
+name: Deploy to Cloudflare
+
+on:
+  workflow_dispatch:
+
+concurrency:
+  group: deploy-cloud
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    defaults:
+      run:
+        working-directory: deploy/cloudflare
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - run: npm ci
+      - run: npx tsc --noEmit
+      - name: Build the image and deploy the Worker
+        run: npx wrangler deploy
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: 884ea67f0f6b2d08d50d15332fbacb09
