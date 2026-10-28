@@ -14,3 +14,5 @@ node_modules/
 dashboard/.env
 .astro/
 .env.hosted
+.neon
+.env.neon

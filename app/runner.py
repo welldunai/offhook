@@ -10,6 +10,7 @@ from typing import Any
 from pipecat.frames.frames import EndFrame, TTSSpeakFrame
 from pipecat.pipeline.runner import PipelineRunner
 
+from app.activity import call_running
 from app.config import VoiceConfig
 from app.logger import logger
 from app.pipeline import build_pipeline_task
@@ -60,6 +61,7 @@ async def run_call(
         await task.queue_frame(EndFrame())
 
     runner = PipelineRunner(handle_sigint=False)
-    await runner.run(task)
+    with call_running():
+        await runner.run(task)
     logger.info(f"[voice] call finished, outcome: {outcome.model_dump()}")
     return outcome

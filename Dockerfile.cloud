@@ -1,0 +1,24 @@
+# Hosted Offhook on Cloudflare Containers (CLOUDFLARE.md): the API, the call worker
+# and the demo voice server in one process (app/cloud.py), listening on 8080.
+# Same base as ./Dockerfile; Cloudflare runs linux/amd64.
+FROM python:3.13-slim
+
+RUN apt-get update && apt-get install -y --no-install-recommends \
+        libgl1 \
+        libglib2.0-0 \
+    && rm -rf /var/lib/apt/lists/*
+
+WORKDIR /app
+
+COPY pyproject.toml README.md ./
+COPY alembic.ini ./
+COPY alembic ./alembic
+COPY app ./app
+
+RUN pip install --no-cache-dir -e .
+
+ENV PYTHONUNBUFFERED=1
+EXPOSE 8080
+
+# Migrations first (fast when there's nothing to do), so a new image always meets its schema.
+CMD ["sh", "-c", "alembic upgrade head && exec uvicorn app.cloud:app --host 0.0.0.0 --port 8080 --proxy-headers --forwarded-allow-ips '*'"]

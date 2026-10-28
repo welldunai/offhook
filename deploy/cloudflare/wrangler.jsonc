@@ -1,0 +1,41 @@
+// Hosted Offhook on Cloudflare Containers (CLOUDFLARE.md). Workers Paid plan.
+{
+  "name": "offhook-api",
+  "main": "src/index.ts",
+  "compatibility_date": "2026-10-01",
+  "account_id": "884ea67f0f6b2d08d50d15332fbacb09", // Welldun
+  "workers_dev": false,
+  // Test address first; api.offhook.welldun.ai and voice.offhook.welldun.ai at switch-over.
+  "routes": [{ "pattern": "api-next.offhook.welldun.ai", "custom_domain": true }],
+  "observability": { "enabled": true },
+
+  "containers": [
+    {
+      "class_name": "OffhookApp",
+      "image": "../../Dockerfile.cloud",
+      "image_build_context": "../..",
+      // One instance: ½ vCPU, 4 GiB. Calls need about half a CPU.
+      "instance_type": "standard-1",
+      "max_instances": 1
+    }
+  ],
+  "durable_objects": { "bindings": [{ "name": "APP", "class_name": "OffhookApp" }] },
+  "migrations": [{ "tag": "v1", "new_sqlite_classes": ["OffhookApp"] }],
+
+  "vars": {
+    "ENV": "prod",
+    "LOG_LEVEL": "INFO",
+    "PUBLIC_BASE_URL": "https://api-next.offhook.welldun.ai",
+    "CORS_ORIGINS": "https://app.offhook.welldun.ai",
+    "ENABLE_PREBUILT_UI": "false",
+    "WEBHOOK_ALLOW_PRIVATE": "false",
+    "CLERK_ISSUER": "https://clerk.app.offhook.welldun.ai",
+    "MASTER_KEY_ID": "v1",
+    "WORKER_URL": "https://demo.offhook.welldun.ai",
+    "DEMO_ALLOWED_ORIGINS": "https://offhook.welldun.ai"
+  }
+  // Secrets (wrangler secret put): DATABASE_URL, MASTER_ENCRYPTION_KEY,
+  // PLATFORM_DEEPGRAM_API_KEY, PLATFORM_CARTESIA_API_KEY, PLATFORM_CARTESIA_VOICE_ID,
+  // PLATFORM_GROQ_API_KEY, DEEPGRAM_API_KEY, CARTESIA_API_KEY, CARTESIA_VOICE_ID,
+  // GROQ_API_KEY, DEMO_HMAC_SECRET
+}

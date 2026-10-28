@@ -19,6 +19,36 @@ from pydantic import Field, field_validator, model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
+def to_asyncpg_url(url: str) -> str:
+    """Rewrite a libpq-style Postgres URL for SQLAlchemy's asyncpg driver.
+
+    Args:
+        url: e.g. ``postgresql://u:p@host/db?sslmode=require&channel_binding=require``.
+
+    Returns:
+        e.g. ``postgresql+asyncpg://u:p@host/db?ssl=require``. URLs already for
+        asyncpg, or without those parameters, keep everything else unchanged.
+    """
+    from urllib.parse import parse_qsl, urlencode, urlsplit, urlunsplit
+
+    parts = urlsplit(url)
+    scheme = parts.scheme
+    if scheme in ("postgres", "postgresql"):
+        scheme = "postgresql+asyncpg"
+    if scheme != "postgresql+asyncpg":
+        return url
+    query = []
+    for k, val in parse_qsl(parts.query, keep_blank_values=True):
+        if k == "channel_binding":
+            continue
+        if k == "sslmode":
+            if val in ("require", "verify-ca", "verify-full"):
+                query.append(("ssl", "require"))
+            continue
+        query.append((k, val))
+    return urlunsplit((scheme, parts.netloc, parts.path, urlencode(query), parts.fragment))
+
+
 class Settings(BaseSettings):
     model_config = SettingsConfigDict(
         env_file=".env", env_file_encoding="utf-8", extra="ignore"
@@ -114,6 +144,17 @@ class Settings(BaseSettings):
     def cors_origin_list(self) -> list[str]:
         return [o.strip() for o in self.cors_origins.split(",") if o.strip()]
 
+    @field_validator("database_url")
+    @classmethod
+    def _asyncpg_url(cls, v: str) -> str:
+        """Accept a plain Postgres URL (as Neon and most hosts give it) for asyncpg.
+
+        ``postgres://`` / ``postgresql://`` become ``postgresql+asyncpg://``;
+        ``sslmode=require`` (or stricter) becomes ``ssl=require``; ``channel_binding``
+        is dropped. asyncpg rejects both libpq parameters, and SSL stays required.
+        """
+        return to_asyncpg_url(v)
+
     @field_validator("master_encryption_key")
     @classmethod
     def _validate_master_key(cls, v: str | None) -> str | None:
@@ -152,3 +193,4 @@ def get_settings() -> Settings:
 
 
 settings = get_settings()
+
