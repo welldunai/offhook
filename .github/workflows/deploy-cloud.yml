@@ -19,6 +19,19 @@ jobs:
         working-directory: deploy/cloudflare
     steps:
       - uses: actions/checkout@v4
+      # Migrations first, so the database schema is ready before the new code is.
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+          cache: pip
+      - name: Migrate the database
+        working-directory: .
+        run: |
+          python deploy/cloudflare/requirements.py pyproject.toml > /tmp/requirements.txt
+          pip install -r /tmp/requirements.txt && pip install --no-deps -e .
+          alembic upgrade head
+        env:
+          DATABASE_URL: ${{ secrets.NEON_DATABASE_URL }}
       - uses: actions/setup-node@v4
         with:
           node-version: 22

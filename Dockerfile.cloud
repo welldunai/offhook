@@ -24,5 +24,6 @@ RUN pip install --no-cache-dir --no-deps -e .
 ENV PYTHONUNBUFFERED=1
 EXPOSE 8080
 
-# Migrations first (fast when there's nothing to do), so a new image always meets its schema.
-CMD ["sh", "-c", "alembic upgrade head && exec uvicorn app.cloud:app --host 0.0.0.0 --port 8080 --proxy-headers --forwarded-allow-ips '*'"]
+# Migrations run in the deploy workflow, before this image goes live, not on every
+# wake-up: they cost ~6 s of every cold start.
+CMD ["uvicorn", "app.cloud:app", "--host", "0.0.0.0", "--port", "8080", "--proxy-headers", "--forwarded-allow-ips", "*"]

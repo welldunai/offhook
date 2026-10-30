@@ -15,6 +15,7 @@ const CARRIER_STEPS: Record<string, { name: string; steps: string[]; url: string
     steps: [
       "In Twilio, open Phone Numbers → Manage → Active numbers and click your number.",
       "Under Voice Configuration, set “A call comes in” to Webhook, paste the address above, and choose HTTP POST.",
+      "Set “Primary handler fails” to the same address, also HTTP POST. If Offhook was asleep, the first try wakes it and the second answers.",
       "Save the configuration.",
     ],
   },
@@ -22,7 +23,7 @@ const CARRIER_STEPS: Record<string, { name: string; steps: string[]; url: string
     name: "Plivo",
     url: "https://console.plivo.com/voice/applications/",
     steps: [
-      "In Plivo, open Voice → Applications → New Application. Paste the address above as the Answer URL, with method POST, and save.",
+      "In Plivo, open Voice → Applications → New Application. Paste the address above as the Answer URL and as the Fallback Answer URL, both with method POST, and save. (If Offhook was asleep, the first try wakes it and the fallback answers.)",
       "Open Phone Numbers → Your Numbers, click your number, choose XML Application, pick the application you just made, and update.",
     ],
   },
