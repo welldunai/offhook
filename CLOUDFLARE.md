@@ -61,6 +61,20 @@ Each ends with a check before the next.
    `api.offhook.welldun.ai` and the demo at the new Worker, and watch the first day.
 3. **Tidy up.** Recordings to R2, usage alerts, retire the Mac's containers and the tunnel.
 
+## Deploying
+
+Deploys run on GitHub Actions (`.github/workflows/deploy-cloud.yml`, started by hand):
+native amd64 builds and a steady connection for the image upload. Deploying from the
+Mac kept failing on dropped connections. Secrets are set with `wrangler secret bulk`
+from `deploy/cloudflare` (values from `.env.neon`, `.env.hosted` and `.env`).
+
+## Step 1 results (2026-10-30, on `api-next.offhook.welldun.ai`)
+
+- First start after the deploy: 18.5 s (image fetch + migrations on Neon). Warm requests: ~0.7 s.
+- `/_activity` is 404 from the internet; CORS allows only the dashboard; no sign-in → 401.
+- A full test call through the Worker and container, on Neon, with Offhook's own
+  providers: the agent rescheduled, recorded both answers and hung up with a summary.
+
 ## Needed from you
 
 - **Workers Paid** on the Welldun account (dashboard → Workers & Pages → Plans).

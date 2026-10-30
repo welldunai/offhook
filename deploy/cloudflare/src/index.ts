@@ -34,10 +34,11 @@ export class OffhookApp extends Container<Env> {
       const res = await this.containerFetch("http://container/_activity");
       const { calls } = (await res.json()) as { calls: number };
       if (calls > 0) {
-        console.log(`[offhook] ${calls} call(s) running; staying awake`);
+        console.log(`[offhook] idle timer: ${calls} call(s) running; staying awake`);
         this.renewActivityTimeout();
         return;
       }
+      console.log("[offhook] idle timer: no calls; going to sleep");
     } catch (e) {
       console.log(`[offhook] activity check failed (${String(e)}); stopping`);
     }
@@ -50,18 +51,41 @@ export class OffhookApp extends Container<Env> {
   }
 }
 
+/**
+ * What may wake the container. Bots probe every new address ("/", "/robots.txt",
+ * "/wp-login.php"…), and the website asks whether the demo is online on every
+ * visit; answering those here keeps the container asleep until real work arrives.
+ * Args: url — the request URL.
+ * Returns: the path to forward to the app, or a Response to send without waking it.
+ */
+function route(url: URL): string | Response {
+  const json = (body: unknown, status = 200) =>
+    new Response(JSON.stringify(body), { status, headers: { "content-type": "application/json" } });
+  if (url.hostname.startsWith("voice")) {
+    // The demo's voice server: only a call wakes the container; it starts within
+    // the ticket's minute, so "online" is true whenever the Worker is up.
+    if (url.pathname === "/ws") return "/demo/ws";
+    if (url.pathname === "/healthz") return json({ ok: true, calls: null });
+    return json({ error: "not_found" }, 404);
+  }
+  if (url.pathname.startsWith("/v1/")) return url.pathname;
+  if (url.pathname === "/healthz") return json({ status: "ok" });
+  return json({ detail: "Not Found" }, 404);
+}
+
 export default {
   /**
-   * Forwards every request (WebSockets included) to the one container instance.
-   * voice.* hosts are the demo voice server, mounted at /demo in the app.
+   * Forwards API requests and calls (WebSockets included) to the one container
+   * instance; answers everything else itself (see route()).
    * Args: request — the incoming request; env — vars, secrets and the container binding.
-   * Returns: the app's response.
+   * Returns: the app's response, or the Worker's own.
    */
   async fetch(request: Request, env: Env): Promise<Response> {
     const url = new URL(request.url);
-    if (url.pathname === "/_activity") return new Response("Not found", { status: 404 });
-    if (url.hostname.startsWith("voice")) {
-      url.pathname = `/demo${url.pathname}`;
+    const target = route(url);
+    if (target instanceof Response) return target;
+    if (target !== url.pathname) {
+      url.pathname = target;
       request = new Request(url, request);
     }
     return env.APP.getByName("main").fetch(request);
