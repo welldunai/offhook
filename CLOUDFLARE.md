@@ -94,3 +94,14 @@ from `deploy/cloudflare` (values from `.env.neon`, `.env.hosted` and `.env`).
 - **A Neon project:** sign up at neon.com, create a project (region nearest the
   callers, e.g. AWS Asia Pacific (Mumbai) or Singapore), and keep its connection
   string for `wrangler secret put` (it never goes through chat).
+
+## Step 2 results (2026-10-30)
+
+- 18:00 the Mac's API, call worker and voice server were stopped; the hosted data
+  (2 workspaces, 2 users, 2 agents) was copied into Neon in one transaction,
+  replacing the test data. The Mac's database container stays up as a backup.
+- 18:04 `api.offhook.welldun.ai` and `voice.offhook.welldun.ai` moved to the Worker
+  (tunnel DNS records removed). Health, sign-in (401 without), dashboard CORS,
+  carrier webhooks (403 without a token) and the demo's status all answer.
+- A test call reached the container and Neon but failed on speech: the shared
+  Cartesia key (Offhook's provided voice and the website demo) ran out of credits.
