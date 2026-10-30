@@ -6,7 +6,12 @@
   "account_id": "884ea67f0f6b2d08d50d15332fbacb09", // Welldun
   "workers_dev": false,
   // Test address first; api.offhook.welldun.ai and voice.offhook.welldun.ai at switch-over.
-  "routes": [{ "pattern": "api-next.offhook.welldun.ai", "custom_domain": true }],
+  "routes": [
+    { "pattern": "api.offhook.welldun.ai", "custom_domain": true },
+    { "pattern": "voice.offhook.welldun.ai", "custom_domain": true },
+    // Kept for testing changes; serves the same app.
+    { "pattern": "api-next.offhook.welldun.ai", "custom_domain": true }
+  ],
   "observability": { "enabled": true },
 
   "containers": [
@@ -25,7 +30,7 @@
   "vars": {
     "ENV": "prod",
     "LOG_LEVEL": "INFO",
-    "PUBLIC_BASE_URL": "https://api-next.offhook.welldun.ai",
+    "PUBLIC_BASE_URL": "https://api.offhook.welldun.ai",
     "CORS_ORIGINS": "https://app.offhook.welldun.ai",
     "ENABLE_PREBUILT_UI": "false",
     "WEBHOOK_ALLOW_PRIVATE": "false",
