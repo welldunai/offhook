@@ -39,9 +39,11 @@ demo.offhook.welldun.ai ──────────▶ api.offhook.welldun.ai
 ```
 
 - **Sleeping:** the container sleeps 5 minutes after its last request, but never
-  while a call is running. Before stopping, the Worker asks the app
-  (`/_activity`, which only the Worker can reach) and keeps it awake if a call is in progress (WebSocket
-  traffic alone isn't reliably counted as activity).
+  while a call is running. Every call's audio is a WebSocket through the Worker, and
+  an open one keeps the container awake on its own. For the gaps (an outbound call
+  still ringing), the Worker asks the app (`/_activity`, which only the Worker can
+  reach) before stopping. It trusts that answer for at most 10 minutes with no
+  request or socket, so a stuck count can't keep it awake forever.
 - **Waking:** any request wakes it (a cold start of a few seconds). The dashboard,
   the API, carrier webhooks and the demo all just work, a little slower on the
   first request after a quiet spell.
@@ -75,6 +77,11 @@ from `deploy/cloudflare` (values from `.env.neon`, `.env.hosted` and `.env`).
   deploy workflow (migrations run there, before `wrangler deploy`).
 - Bots probing `/`, `/.env` and the like kept the container awake; the Worker now
   answers anything outside `/v1`, `/ws` and `/healthz` itself, so they don't wake it.
+- Long calls (tested with the idle timer at 90 s): a full 5-minute call ran to its
+  time limit, and the container slept 90 s after it ended. The first try found a
+  bug: a call whose pipeline never finished kept counting as running, so the
+  container never slept. Fixed: the watchdog does the counting, and the Worker caps it.
+- A deploy restarts the container and ends calls in progress; deploy when it's quiet.
 - Carriers wait about 15 s for an incoming-call webhook, so a cold wake fits; the
   Numbers page also tells users to set the same address as the fallback URL.
 - `/_activity` is 404 from the internet; CORS allows only the dashboard; no sign-in → 401.
