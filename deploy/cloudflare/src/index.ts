@@ -19,6 +19,14 @@ type Env = Record<(typeof PASS_THROUGH)[number], string> & {
   SLEEP_AFTER?: string;
 };
 
+/**
+ * How long the app may report a call with no request or open socket before we
+ * treat its count as stuck. Every call's audio is a WebSocket through this
+ * Worker, and an open one already keeps the container awake; the count only
+ * covers gaps such as an outbound call ringing, which take a minute or two.
+ */
+const MAX_HOLD_MS = 10 * 60 * 1000;
+
 export class OffhookApp extends Container<Env> {
   defaultPort = 8080;
   // Sleep five minutes after the last request, unless a call is still running.
@@ -30,6 +38,19 @@ export class OffhookApp extends Container<Env> {
     this.envVars = Object.fromEntries(PASS_THROUGH.filter((k) => env[k] !== undefined).map((k) => [k, env[k]]));
   }
 
+  /** When the idle timer first found a call running with nothing in flight. */
+  private heldSince: number | undefined;
+
+  /**
+   * Forwards a request to the container; any request means the app is in use.
+   * Args: request — the request from the Worker.
+   * Returns: the container's response.
+   */
+  override async fetch(request: Request): Promise<Response> {
+    this.heldSince = undefined;
+    return super.fetch(request);
+  }
+
   /**
    * The idle timer ran out. WebSocket audio isn't reliably counted as activity,
    * so ask the app whether a call is in progress before stopping.
@@ -39,14 +60,20 @@ export class OffhookApp extends Container<Env> {
       const res = await this.containerFetch("http://container/_activity");
       const { calls } = (await res.json()) as { calls: number };
       if (calls > 0) {
-        console.log(`[offhook] idle timer: ${calls} call(s) running; staying awake`);
-        this.renewActivityTimeout();
-        return;
+        this.heldSince ??= Date.now();
+        if (Date.now() - this.heldSince < MAX_HOLD_MS) {
+          console.log(`[offhook] idle timer: ${calls} call(s) running; staying awake`);
+          this.renewActivityTimeout();
+          return;
+        }
+        console.error(`[offhook] idle timer: ${calls} call(s) reported for 10 minutes with nothing in flight; count looks stuck, going to sleep`);
+      } else {
+        console.log("[offhook] idle timer: no calls; going to sleep");
       }
-      console.log("[offhook] idle timer: no calls; going to sleep");
     } catch (e) {
       console.log(`[offhook] activity check failed (${String(e)}); stopping`);
     }
+    this.heldSince = undefined;
     await this.stop();
   }
 

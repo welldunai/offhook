@@ -11,6 +11,7 @@ from typing import Awaitable, Callable
 from fastapi import WebSocket
 from pipecat.transports.websocket.fastapi import FastAPIWebsocketParams, FastAPIWebsocketTransport
 
+from app.activity import call_running
 from app.browser.call import BrowserCall
 from app.browser.serializer import SAMPLE_RATE, BrowserCallSerializer
 from app.logger import logger
@@ -55,7 +56,10 @@ async def run_guarded(call: BrowserCall, websocket: WebSocket, runner: CallRunne
         runner: What runs the call; defaults to ``run_over_socket``.
     """
     running = asyncio.create_task(runner(call, websocket))
-    done, _ = await asyncio.wait({running}, timeout=call.limits.max_seconds + WATCHDOG_GRACE)
+    # Counted here, not around the pipeline: a pipeline that never finishes would
+    # otherwise count as a running call forever and keep the container awake.
+    with call_running():
+        done, _ = await asyncio.wait({running}, timeout=call.limits.max_seconds + WATCHDOG_GRACE)
     if not done:
         logger.error(f"[browser] call {call.session_id} didn't finish; giving up on it")
         running.cancel()

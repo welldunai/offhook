@@ -33,7 +33,6 @@ from pipecat.frames.frames import (
 from pipecat.observers.base_observer import BaseObserver, FramePushed
 from pipecat.pipeline.runner import PipelineRunner
 
-from app.activity import call_running
 from app.config import VoiceConfig
 from app.logger import logger
 from app.pipeline import build_pipeline_task
@@ -148,8 +147,7 @@ class BrowserCall:
             self.stop_soon(0)
 
         try:
-            with call_running():
-                await PipelineRunner(handle_sigint=False).run(task)
+            await PipelineRunner(handle_sigint=False).run(task)
         except Exception:
             logger.exception(f"[demo] call {self.session_id} failed")
             self.failed = True
