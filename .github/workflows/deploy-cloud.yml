@@ -5,6 +5,11 @@ name: Deploy to Cloudflare
 
 on:
   workflow_dispatch:
+    inputs:
+      sleep_after:
+        description: Idle timer override for testing, e.g. 90s (empty keeps 5m)
+        required: false
+        default: ""
 
 concurrency:
   group: deploy-cloud
@@ -38,7 +43,8 @@ jobs:
       - run: npm ci
       - run: npx tsc --noEmit
       - name: Build the image and deploy the Worker
-        run: npx wrangler deploy
+        run: npx wrangler deploy ${SLEEP_AFTER:+--var SLEEP_AFTER:$SLEEP_AFTER}
         env:
           CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           CLOUDFLARE_ACCOUNT_ID: 884ea67f0f6b2d08d50d15332fbacb09
+          SLEEP_AFTER: ${{ inputs.sleep_after }}

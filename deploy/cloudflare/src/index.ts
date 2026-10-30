@@ -13,7 +13,11 @@ const PASS_THROUGH = [
   "DEEPGRAM_API_KEY", "CARTESIA_API_KEY", "CARTESIA_VOICE_ID", "GROQ_API_KEY", "DEMO_HMAC_SECRET",
 ] as const;
 
-type Env = Record<(typeof PASS_THROUGH)[number], string> & { APP: DurableObjectNamespace<OffhookApp> };
+type Env = Record<(typeof PASS_THROUGH)[number], string> & {
+  APP: DurableObjectNamespace<OffhookApp>;
+  /** Overrides the idle timer, e.g. "90s" for testing that calls keep it awake. */
+  SLEEP_AFTER?: string;
+};
 
 export class OffhookApp extends Container<Env> {
   defaultPort = 8080;
@@ -22,6 +26,7 @@ export class OffhookApp extends Container<Env> {
 
   constructor(ctx: DurableObjectState<{}>, env: Env) {
     super(ctx, env);
+    if (env.SLEEP_AFTER) this.sleepAfter = env.SLEEP_AFTER;
     this.envVars = Object.fromEntries(PASS_THROUGH.filter((k) => env[k] !== undefined).map((k) => [k, env[k]]));
   }
 
