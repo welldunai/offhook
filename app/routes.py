@@ -21,7 +21,7 @@ from datetime import datetime, timezone
 from typing import Any
 
 from fastapi import APIRouter, Depends, Header, HTTPException, Request, Response, WebSocket
-from fastapi.responses import FileResponse, JSONResponse
+from fastapi.responses import JSONResponse
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -34,7 +34,7 @@ from app.db.engine import get_session, session_scope
 from app.db.models import Call, CallJob, IdempotencyKey, UsageRecord
 from app.logger import logger
 from app.providers import llm_registry, stt_registry, tts_registry
-from app.recording import CallRecorder, save_recording
+from app.recording import CallRecorder, load_recording, save_recording
 from app.runner import run_call
 from app.settings import settings
 from app.tenancy.resolve import (
@@ -186,16 +186,18 @@ async def get_call_recording(
     call_id: uuid.UUID,
     ctx: TenantContext = Depends(require_tenant),
     db: AsyncSession = Depends(get_session),
-) -> FileResponse:
-    """Stream the call's audio recording (WAV)."""
+) -> Response:
+    """Return the call's audio recording (WAV)."""
     call = await repo.get_call(db, ctx.tenant_id, call_id)
     if call is None or not call.recording_path:
         raise HTTPException(status_code=404, detail="recording not found")
-    import os
-
-    if not os.path.exists(call.recording_path):
+    wav = await load_recording(call.recording_path)
+    if wav is None:
         raise HTTPException(status_code=404, detail="recording file missing")
-    return FileResponse(call.recording_path, media_type="audio/wav", filename=f"call-{call_id}.wav")
+    return Response(
+        wav, media_type="audio/wav",
+        headers={"Content-Disposition": f'attachment; filename="call-{call_id}.wav"'},
+    )
 
 
 # ---- carrier webhooks (token-authed) ------------------------------------
@@ -421,7 +423,7 @@ async def telephony_stream(websocket: WebSocket, session_token: str | None = Non
     # Persist the call audio (best-effort).
     rec_path = None
     try:
-        rec_path = save_recording(tenant_id, call_id, recorder)
+        rec_path = await save_recording(tenant_id, call_id, recorder)
     except Exception:  # noqa: BLE001
         logger.exception("[telephony] failed to save recording")
 

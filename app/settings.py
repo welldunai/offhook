@@ -129,6 +129,9 @@ class Settings(BaseSettings):
     webhook_allow_private: bool = Field(default=False, alias="WEBHOOK_ALLOW_PRIVATE")
     # Where call audio recordings are written (local FS; use object storage in prod).
     recordings_dir: str = Field(default="recordings", alias="RECORDINGS_DIR")
+    # When set, recordings are stored over HTTP here instead (PUT/GET <url>/<key>).
+    # On Cloudflare it's http://recordings.internal, which the Worker keeps in R2.
+    recordings_url: str | None = Field(default=None, alias="RECORDINGS_URL")
 
     # Comma-separated allowed origins for the dashboard (browser CORS).
     # Covers the dashboard's dedicated dev port + the common Vite fallbacks.

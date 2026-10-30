@@ -13,6 +13,8 @@
     { "pattern": "api-next.offhook.welldun.ai", "custom_domain": true }
   ],
   "observability": { "enabled": true },
+  // Call recordings (app/recording.py → http://recordings.internal → this bucket).
+  "r2_buckets": [{ "binding": "RECORDINGS", "bucket_name": "offhook-recordings" }],
 
   "containers": [
     {
@@ -37,7 +39,8 @@
     "CLERK_ISSUER": "https://clerk.app.offhook.welldun.ai",
     "MASTER_KEY_ID": "v1",
     "WORKER_URL": "https://demo.offhook.welldun.ai",
-    "DEMO_ALLOWED_ORIGINS": "https://offhook.welldun.ai"
+    "DEMO_ALLOWED_ORIGINS": "https://offhook.welldun.ai",
+    "RECORDINGS_URL": "http://recordings.internal"
   }
   // Secrets (wrangler secret put): DATABASE_URL, MASTER_ENCRYPTION_KEY,
   // PLATFORM_DEEPGRAM_API_KEY, PLATFORM_CARTESIA_API_KEY, PLATFORM_CARTESIA_VOICE_ID,

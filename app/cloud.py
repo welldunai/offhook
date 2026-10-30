@@ -5,6 +5,8 @@
     process: it places queued calls and sends webhooks while the container is awake;
   * the website demo's voice server (``app.demo.server``), under ``/demo``.
 
+``/_recordings_check`` writes and reads back a probe recording, so the Worker
+can log whether the recording store works each time the container starts.
 ``/_activity`` reports running calls; the Cloudflare Worker asks it before letting
 the container sleep (see deploy/cloudflare). Run with
 ``uvicorn app.cloud:app --port 8080``.
@@ -13,6 +15,7 @@ the container sleep (see deploy/cloudflare). Run with
 from __future__ import annotations
 
 import asyncio
+import uuid
 from contextlib import asynccontextmanager
 
 from fastapi.responses import JSONResponse
@@ -22,6 +25,7 @@ from app.activity import active_calls
 from app.demo.server import app as demo_app
 from app.logger import logger
 from app.main import app
+from app.recording import CallRecorder, load_recording, save_recording
 
 app.mount("/demo", demo_app)
 
@@ -29,6 +33,27 @@ app.mount("/demo", demo_app)
 async def activity() -> JSONResponse:
     """Calls running in this process. The Worker blocks this path from the internet."""
     return JSONResponse({"calls": active_calls()})
+
+
+#: The probe recording's ids; real ones are random, so this never collides.
+_PROBE = uuid.UUID(int=0)
+
+
+@app.get("/_recordings_check", include_in_schema=False)
+async def recordings_check() -> JSONResponse:
+    """Store a tiny recording and read it back. The Worker blocks this path from the internet.
+
+    Returns:
+        {"ok": true, "where": ...} if it round-trips, else {"ok": false, "error": ...}.
+    """
+    probe = CallRecorder()
+    probe.audio, probe.sample_rate = b"\x00\x00" * 80, 8000
+    try:
+        location = await save_recording(_PROBE, _PROBE, probe)
+        back = await load_recording(location or "")
+    except Exception as e:  # noqa: BLE001 - reported, not raised
+        return JSONResponse({"ok": False, "error": repr(e)[:200]})
+    return JSONResponse({"ok": bool(back and back[:4] == b"RIFF"), "where": (location or "").split(":")[0]})
 
 
 # The API's own lifespan (key checks etc.) runs first; the worker starts inside it.

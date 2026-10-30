@@ -5,8 +5,9 @@ A :class:`CallRecorder` is a plain holder the pipeline fills via pipecat's
 it to a WAV and write it to local storage under
 ``<recordings_dir>/<tenant_id>/<call_id>.wav``.
 
-Local files are fine for dev; point ``RECORDINGS_DIR`` at a mounted volume, or
-swap ``save_recording`` for object storage (S3/GCS), in production.
+Local files are fine for dev. With ``RECORDINGS_URL`` set, recordings go to that
+HTTP store instead (on Cloudflare, the Worker keeps them in R2), and the call
+records ``store:<tenant_id>/<call_id>.wav``.
 """
 
 from __future__ import annotations
@@ -16,7 +17,12 @@ import os
 import uuid
 import wave
 
+import httpx
+
 from app.settings import settings
+
+#: Marks a recording kept in the HTTP store rather than on local disk.
+STORE_PREFIX = "store:"
 
 
 class CallRecorder:
@@ -42,12 +48,52 @@ def recording_path(tenant_id: uuid.UUID, call_id: uuid.UUID) -> str:
     return os.path.join(settings.recordings_dir, str(tenant_id), f"{call_id}.wav")
 
 
-def save_recording(tenant_id: uuid.UUID, call_id: uuid.UUID, recorder: CallRecorder) -> str | None:
-    """Encode + write the recording. Returns the path, or None if there's no audio."""
+async def save_recording(tenant_id: uuid.UUID, call_id: uuid.UUID, recorder: CallRecorder) -> str | None:
+    """Encode and store the recording.
+
+    Args:
+        tenant_id: The call's workspace.
+        call_id: The call.
+        recorder: What the pipeline captured.
+
+    Returns:
+        Where it was stored (a local path, or ``store:<key>``), or None if there's no audio.
+    """
     if not recorder.audio:
         return None
+    wav = to_wav(recorder.audio, recorder.sample_rate, recorder.num_channels)
+    if settings.recordings_url:
+        key = f"{tenant_id}/{call_id}.wav"
+        async with httpx.AsyncClient(timeout=60.0) as client:
+            r = await client.put(f"{settings.recordings_url}/{key}", content=wav)
+            r.raise_for_status()
+        return STORE_PREFIX + key
     path = recording_path(tenant_id, call_id)
     os.makedirs(os.path.dirname(path), exist_ok=True)
     with open(path, "wb") as f:
-        f.write(to_wav(recorder.audio, recorder.sample_rate, recorder.num_channels))
+        f.write(wav)
     return path
+
+
+async def load_recording(location: str) -> bytes | None:
+    """Read a stored recording back.
+
+    Args:
+        location: What ``save_recording`` returned.
+
+    Returns:
+        The WAV bytes, or None if it's gone.
+    """
+    if location.startswith(STORE_PREFIX):
+        if not settings.recordings_url:
+            return None
+        async with httpx.AsyncClient(timeout=60.0) as client:
+            r = await client.get(f"{settings.recordings_url}/{location[len(STORE_PREFIX):]}")
+        if r.status_code == 404:
+            return None
+        r.raise_for_status()
+        return r.content
+    if not os.path.exists(location):
+        return None
+    with open(location, "rb") as f:
+        return f.read()
