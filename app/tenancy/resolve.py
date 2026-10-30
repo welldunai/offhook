@@ -26,6 +26,7 @@ from app.settings import settings as app_settings
 from app.crypto.envelope import decrypt_secret, get_or_create_tenant_dek
 from app.db import repositories as repo
 from app.db.models import Agent
+from app.providers.fallback import with_fallback
 from app.schemas import AgentConfig, CallContext
 from app.tools.http_tool import ResolvedTool
 
@@ -136,6 +137,8 @@ async def _build_voice_config(
 
     stt = await leg_creds("stt")
     tts = await leg_creds("tts")
+    if "tts" in managed:
+        tts = await with_fallback(tts, app_settings.platform_deepgram_api_key)
     llm = await leg_creds("llm")
     telephony = None
     if conn_ids.get("telephony"):

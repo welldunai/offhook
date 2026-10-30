@@ -15,6 +15,7 @@ A connection's life:
 from __future__ import annotations
 
 import json
+from dataclasses import replace
 from typing import Any
 
 from fastapi import FastAPI, WebSocket
@@ -26,6 +27,7 @@ from app.demo.config import DemoSettings
 from app.demo.signing import read_ticket
 from app.demo.worker import ClaimRefused, WorkerClient
 from app.logger import logger
+from app.providers.fallback import with_fallback
 
 def create_app(
     settings: DemoSettings,
@@ -77,11 +79,13 @@ def create_app(
         if claimed.get("session_id") != session_id:
             return await _refuse(websocket, "bad_ticket", "Something went wrong. Start the call again.")
 
+        cfg = voice_config(settings)
+        cfg = replace(cfg, tts=await with_fallback(cfg.tts, settings.deepgram_api_key))
         call = DemoCall(
             session_id,
             claimed["plan"],
             Limits(claimed["max_seconds"], claimed["wrap_up_seconds"], claimed["silence_seconds"]),
-            voice_config(settings),
+            cfg,
         )
         state["active"] += 1
         logger.info(f"[demo] call {session_id} starting ({state['active']} active)")

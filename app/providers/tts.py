@@ -50,3 +50,14 @@ def _build_openai(creds: ResolvedCreds) -> Any:
         api_key=creds.secret("api_key"),
         voice=creds.setting("voice_id", "alloy"),
     )
+
+
+@tts_registry.register("deepgram")
+def _build_deepgram(creds: ResolvedCreds) -> Any:
+    from pipecat.services.deepgram.tts import DeepgramTTSService
+
+    # Deepgram's Aura voices are named ("aura-2-helena-en"), not ids.
+    return DeepgramTTSService(
+        api_key=creds.secret("api_key"),
+        voice=creds.setting("voice_id", "aura-2-helena-en"),
+    )

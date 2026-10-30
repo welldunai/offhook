@@ -21,6 +21,8 @@ os.environ["WEBHOOK_ALLOW_PRIVATE"] = "0"  # SSRF guard active; tests use public
 
 import uuid  # noqa: E402
 
+import pytest  # noqa: E402
+
 import pytest_asyncio  # noqa: E402
 from httpx import ASGITransport, AsyncClient  # noqa: E402
 from sqlalchemy import text  # noqa: E402
@@ -136,3 +138,15 @@ async def make_full_agent(session, tenant_id):
     await session.commit()
     await session.refresh(agent)
     return agent
+
+
+@pytest.fixture(autouse=True)
+def cartesia_speaks(monkeypatch):
+    """Tests never call Cartesia: its check says the key works unless a test says otherwise."""
+    import app.providers.fallback as fallback
+
+    async def ok(_key, _voice):
+        return True
+
+    monkeypatch.setattr(fallback, "check_cartesia", ok)
+    monkeypatch.setattr(fallback, "_checks", {})
