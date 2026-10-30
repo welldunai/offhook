@@ -105,3 +105,14 @@ from `deploy/cloudflare` (values from `.env.neon`, `.env.hosted` and `.env`).
   carrier webhooks (403 without a token) and the demo's status all answer.
 - A test call reached the container and Neon but failed on speech: the shared
   Cartesia key (Offhook's provided voice and the website demo) ran out of credits.
+
+## Step 3: the Mac retired (2026-10-30)
+
+- Backup of the hosted database (schema and data) at
+  `~/Desktop/musings/backups/offhook-hosted-2026-10-30.sql`, outside the repo.
+- Removed with `docker compose down -v`: the hosted stack (API, worker, Postgres and
+  its volumes) and the demo stack (voice server, cloudflared). Nothing in hosted
+  Offhook runs on the Mac now. The compose files stay for self-hosting.
+- The `offhook-voice` tunnel itself is deleted in the Cloudflare dashboard
+  (Zero Trust → Networks → Tunnels); it carried only api. and voice.offhook.
+- Still to do: recordings to R2 (code ready; needs R2 enabled), usage alerts.
