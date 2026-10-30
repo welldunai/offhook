@@ -40,7 +40,7 @@ demo.offhook.welldun.ai ──────────▶ api.offhook.welldun.ai
 
 - **Sleeping:** the container sleeps 5 minutes after its last request, but never
   while a call is running. Before stopping, the Worker asks the app
-  (`/internal/activity`) and keeps it awake if a call is in progress (WebSocket
+  (`/_activity`, which only the Worker can reach) and keeps it awake if a call is in progress (WebSocket
   traffic alone isn't reliably counted as activity).
 - **Waking:** any request wakes it (a cold start of a few seconds). The dashboard,
   the API, carrier webhooks and the demo all just work, a little slower on the
@@ -71,6 +71,12 @@ from `deploy/cloudflare` (values from `.env.neon`, `.env.hosted` and `.env`).
 ## Step 1 results (2026-10-30, on `api-next.offhook.welldun.ai`)
 
 - First start after the deploy: 18.5 s (image fetch + migrations on Neon). Warm requests: ~0.7 s.
+- Waking after idle: 23.2 s with migrations at boot; **7.5 s** once they moved to the
+  deploy workflow (migrations run there, before `wrangler deploy`).
+- Bots probing `/`, `/.env` and the like kept the container awake; the Worker now
+  answers anything outside `/v1`, `/ws` and `/healthz` itself, so they don't wake it.
+- Carriers wait about 15 s for an incoming-call webhook, so a cold wake fits; the
+  Numbers page also tells users to set the same address as the fallback URL.
 - `/_activity` is 404 from the internet; CORS allows only the dashboard; no sign-in → 401.
 - A full test call through the Worker and container, on Neon, with Offhook's own
   providers: the agent rescheduled, recorded both answers and hung up with a summary.
