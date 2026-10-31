@@ -16,6 +16,8 @@ const GITHUB = "https://github.com/welldunai/offhook";
 // The hosted dashboard: it shows your workspace if you're signed in, and sign-in
 // (with sign-up) if you're not.
 const APP = "https://app.offhook.welldun.ai";
+// Cloudflare Web Analytics: cookieless visit counts, referrers and countries.
+const BEACON = import.meta.env.PUBLIC_CF_BEACON_TOKEN;
 const NAV = [
   { label: "Use cases", href: "/use-cases/" },
   { label: "Docs", href: "/docs/" },
@@ -133,5 +135,8 @@ const NAV = [
         });
       }
     </script>
+    {BEACON && (
+      <script is:inline defer src="https://static.cloudflareinsights.com/beacon.min.js" data-cf-beacon={JSON.stringify({ token: BEACON })}></script>
+    )}
   </body>
 </html>

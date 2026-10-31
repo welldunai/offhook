@@ -8,6 +8,16 @@ import { ToastProvider } from "./ui";
 
 const PUB_KEY = import.meta.env.VITE_CLERK_PUBLISHABLE_KEY as string | undefined;
 
+// Cloudflare Web Analytics: cookieless visit counts, referrers and countries.
+const BEACON = import.meta.env.VITE_CF_BEACON_TOKEN as string | undefined;
+if (BEACON) {
+  const s = document.createElement("script");
+  s.defer = true;
+  s.src = "https://static.cloudflareinsights.com/beacon.min.js";
+  s.setAttribute("data-cf-beacon", JSON.stringify({ token: BEACON }));
+  document.head.appendChild(s);
+}
+
 function MissingClerk() {
   return (
     <div style={{ minHeight: "100vh", display: "grid", placeItems: "center", padding: 24, position: "relative", zIndex: 1 }}>

@@ -4,4 +4,6 @@ interface ImportMetaEnv {
   readonly PUBLIC_DEMO_API?: string;
   /** Cloudflare Turnstile site key for the demo. */
   readonly PUBLIC_TURNSTILE_SITE_KEY?: string;
+  /** Cloudflare Web Analytics token (public). Unset: no analytics script. */
+  readonly PUBLIC_CF_BEACON_TOKEN?: string;
 }
