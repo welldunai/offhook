@@ -3,8 +3,9 @@ import worker, { type Env } from "../src/index";
 import { testEnv } from "./env";
 
 let env: Env;
+let db: ReturnType<typeof testEnv>["db"];
 beforeEach(() => {
-  env = testEnv().env;
+  ({ env, db } = testEnv());
 });
 afterEach(() => vi.unstubAllGlobals());
 
@@ -75,6 +76,17 @@ describe("POST /plans", () => {
     for (let i = 0; i < 3; i++) expect((await post(ok)).status).toBe(502);
     stubUpstreams({ groq: REFUSAL });
     expect(((await (await post(ok)).json()) as any).plans_left).toBe(1);
+  });
+  it("counts every plan request by outcome, without keeping the purpose", async () => {
+    stubUpstreams({ groq: REFUSAL });
+    const ok = { purpose: "Call people as their bank", turnstile_token: "x" };
+    for (let i = 0; i < 3; i++) await post(ok);
+    stubUpstreams({});
+    await post(ok, { ...VISITOR, "cf-connecting-ip": "203.0.113.8", cookie: "oh_vid=3b2e6f1c-8a4d-4a8e-9f0b-1c2d3e4f5a6c" });
+    const rows = db.prepare("SELECT outcome, visitor FROM plan_requests ORDER BY id").all() as any[];
+    expect(rows.map((r) => r.outcome)).toEqual(["refused", "refused", "limited", "failed"]);
+    expect(rows[0].visitor).toMatch(/^ip:/);
+    expect(JSON.stringify(db.prepare("SELECT * FROM plan_requests").all())).not.toContain("bank");
   });
   it("sets the visitor cookie for new visitors only", async () => {
     stubUpstreams({ groq: REFUSAL });

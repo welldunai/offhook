@@ -1,4 +1,4 @@
-import { readFileSync } from "node:fs";
+import { readdirSync, readFileSync } from "node:fs";
 import { DatabaseSync } from "node:sqlite";
 import type { Env } from "../src/config";
 import { Gate } from "../src/gate";
@@ -9,7 +9,8 @@ type Bind = string | number | null;
 /** A D1Database stand-in over in-memory node:sqlite, with the real migrations applied. */
 export function memoryD1(): { d1: D1Database; db: DatabaseSync } {
   const db = new DatabaseSync(":memory:");
-  db.exec(readFileSync(new URL("../migrations/0001_init.sql", import.meta.url), "utf8"));
+  const dir = new URL("../migrations/", import.meta.url);
+  for (const f of readdirSync(dir).filter((n) => n.endsWith(".sql")).sort()) db.exec(readFileSync(new URL(f, dir), "utf8"));
   const statement = (sql: string, binds: Bind[] = []) => ({
     bind: (...b: Bind[]) => statement(sql, b),
     run: async () => { db.prepare(sql).run(...binds); return { success: true }; },

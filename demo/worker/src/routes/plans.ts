@@ -26,17 +26,24 @@ export async function createPlan(request: Request, env: Env): Promise<Response> 
   const gate = gateOf(env);
   const limit = Number(env.DAILY_PLANS_PER_VISITOR);
   const taken = await gate.take("plan", visitor.keys, limit, day);
+  const record = (outcome: "planned" | "refused" | "failed" | "limited") =>
+    env.DB.prepare("INSERT INTO plan_requests (created_at, visitor, outcome) VALUES (?, ?, ?)")
+      .bind(Date.now(), visitor.keys[0], outcome)
+      .run();
   if (!taken.ok) {
+    await record("limited");
     return withCookie(limitReached(`You've planned ${limit} calls today. Try again tomorrow.`), visitor.setCookie);
   }
 
   try {
     const result = await planCall(checked.purpose, { apiKey: env.GROQ_API_KEY, model: env.PLANNER_MODEL });
+    await record(result.status);
     return withCookie(json({ ...result, plans_left: taken.left }), visitor.setCookie);
   } catch (e) {
     if (!(e instanceof PlannerError)) throw e;
     console.error("planner failed:", e.message);
     await gate.refund("plan", visitor.keys, day);
+    await record("failed");
     return withCookie(problem("planner_failed", "We couldn't plan that call just now. Try again in a moment.", 502), visitor.setCookie);
   }
 }

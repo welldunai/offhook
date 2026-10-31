@@ -153,13 +153,19 @@ describe("GET /status and /sessions/{id}", () => {
 });
 
 describe("cleanup", () => {
-  it("expires never-connected sessions and deletes day-old ones", async () => {
+  it("expires never-connected sessions, and wipes what was said after a day but keeps the stats", async () => {
     upstreams();
     const s: any = await (await start({ use_case: "lead-qualification" })).json();
+    db.prepare("UPDATE demo_sessions SET transcript = '[1]', outcome = '{\"a\":1}', summary = 'x'").run();
     await cleanup(env, Date.now() + 61_000);
     expect(db.prepare("SELECT status FROM demo_sessions").get()).toEqual({ status: "expired" });
-    await cleanup(env, Date.now() + 24 * 3600_000 + 1);
-    expect(db.prepare("SELECT COUNT(*) AS n FROM demo_sessions").get()).toEqual({ n: 0 });
+    const dayLater = Date.now() + 24 * 3600_000 + 1;
+    await cleanup(env, dayLater);
+    vi.useFakeTimers({ toFake: ["Date"] });
+    vi.setSystemTime(dayLater);
+    expect(db.prepare("SELECT status, use_case, plan, transcript, outcome, summary FROM demo_sessions").get()).toEqual({
+      status: "expired", use_case: "lead-qualification", plan: "{}", transcript: null, outcome: null, summary: null,
+    });
     expect((await call(`/sessions/${s.session_id}`)).status).toBe(404);
   });
 });

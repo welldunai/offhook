@@ -37,6 +37,6 @@ database_name = "offhook-demo"
 database_id = "efc98f58-b2c0-455c-82a2-b712ab4c52be"
 migrations_dir = "migrations"
 
-# Hourly: delete day-old sessions and free stale lines.
+# Hourly: wipe what visitors said in day-old sessions (keeping stats) and free stale lines.
 [triggers]
 crons = ["0 * * * *"]
