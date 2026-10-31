@@ -14,7 +14,8 @@
   ],
   "observability": { "enabled": true },
   // Call recordings (app/recording.py → http://recordings.internal → this bucket).
-  "r2_buckets": [{ "binding": "RECORDINGS", "bucket_name": "offhook-recordings" }],
+  // Off until R2 is enabled on the account; uncomment this and RECORDINGS_URL below.
+  // "r2_buckets": [{ "binding": "RECORDINGS", "bucket_name": "offhook-recordings" }],
 
   "containers": [
     {
@@ -40,7 +41,9 @@
     "MASTER_KEY_ID": "v1",
     "WORKER_URL": "https://demo.offhook.welldun.ai",
     "DEMO_ALLOWED_ORIGINS": "https://offhook.welldun.ai",
-    "RECORDINGS_URL": "http://recordings.internal"
+    // Dashboard users (users.id) who may see /v1/admin/stats; the stats page shows yours.
+    "ADMIN_USER_IDS": ""
+    // "RECORDINGS_URL": "http://recordings.internal"
   }
   // Secrets (wrangler secret put): DATABASE_URL, MASTER_ENCRYPTION_KEY,
   // PLATFORM_DEEPGRAM_API_KEY, PLATFORM_CARTESIA_API_KEY, PLATFORM_CARTESIA_VOICE_ID,

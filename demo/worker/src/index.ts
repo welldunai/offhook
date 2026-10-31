@@ -3,7 +3,7 @@ import { USE_CASES } from "../../../site/src/use-cases";
 import { cleanup } from "./cleanup";
 import type { Env } from "./config";
 import { json, problem } from "./http";
-import { claim, resetUsage, results } from "./routes/internal";
+import { claim, resetUsage, results, stats } from "./routes/internal";
 import { createPlan } from "./routes/plans";
 import { createSession, getSession } from "./routes/sessions";
 import { status } from "./routes/status";
@@ -82,6 +82,7 @@ async function internal(pathname: string, request: Request, env: Env): Promise<R
   if (pathname === "/internal/claim") return claim(request, env);
   if (pathname === "/internal/results") return results(request, env);
   if (pathname === "/internal/reset") return resetUsage(request, env);
+  if (pathname === "/internal/stats") return stats(request, env);
   return problem("not_found", "Not found.", 404);
 }
 

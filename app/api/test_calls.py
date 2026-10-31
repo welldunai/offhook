@@ -16,6 +16,7 @@ hosted Offhook runs; several API processes would need a shared store.
 from __future__ import annotations
 
 import json
+import math
 import secrets
 import time
 import uuid
@@ -29,6 +30,7 @@ from app.auth.dependencies import TenantContext, require_tenant
 from app.browser.call import BrowserCall, Limits
 from app.browser.socket import run_guarded
 from app.db import repositories as repo
+from app.db.models import UsageRecord
 from app.db.engine import get_session, session_scope
 from app.logger import logger
 from app.settings import settings
@@ -165,6 +167,24 @@ async def test_call_socket(websocket: WebSocket) -> None:
     finally:
         _state.active[ticket.tenant_id] -= 1
         logger.info(f"[test-call] {call.session_id} ended: {call.end_reason}")
+        await _record_usage(ticket.tenant_id, call)
+
+
+async def _record_usage(tenant_id: uuid.UUID, call: BrowserCall) -> None:
+    """Record a finished test call as usage (kind "test_call"), for stats and later billing.
+
+    Best-effort: a failure is logged, never raised, since the call is already over.
+
+    Args:
+        tenant_id: The workspace that ran it.
+        call: The finished call.
+    """
+    seconds = math.ceil(call.results()["duration_seconds"])
+    try:
+        async with session_scope() as db:
+            db.add(UsageRecord(tenant_id=tenant_id, kind="test_call", seconds=seconds))
+    except Exception:  # noqa: BLE001 - stats must never break a call
+        logger.exception(f"[test-call] couldn't record usage for {call.session_id}")
 
 
 def _ws_url(request: Request) -> str:

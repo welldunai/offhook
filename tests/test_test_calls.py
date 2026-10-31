@@ -117,3 +117,17 @@ async def test_an_agent_with_an_unusable_connection_is_refused_up_front(client, 
     await session.commit()
     r = await client.post(f"/v1/agents/{agent.id}/test-call", json={})
     assert r.status_code == 409
+
+
+async def test_a_finished_test_call_is_recorded_but_not_billed_as_a_call(client, session, tenant):
+    from sqlalchemy import select
+
+    from app.db.models import UsageRecord
+
+    agent = await make_full_agent(session, tenant.id)
+    ticket = (await ticket_for(client, agent.id))["ticket"]
+    await tc.test_call_socket(FakeSocket(ticket))
+    rows = (await session.execute(select(UsageRecord).where(UsageRecord.tenant_id == tenant.id))).scalars().all()
+    assert [(r.kind, r.seconds) for r in rows] == [("test_call", 0)]
+    usage = (await client.get("/v1/usage")).json()
+    assert usage["call_count"] == 0 and usage["total_seconds"] == 0

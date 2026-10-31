@@ -200,3 +200,26 @@ describe("POST /internal/reset", () => {
     expect((await start({ use_case: "lead-qualification" })).status).not.toBe(429);
   });
 });
+
+describe("POST /internal/stats", () => {
+  it("counts the day's demo activity, signed, without any of what was said", async () => {
+    upstreams();
+    const a: any = await (await start({ use_case: "appointment-confirmation" }, 1)).json();
+    await start({ use_case: "lead-qualification" }, 2);
+    await signed("/internal/claim", { ticket: a.ticket });
+    await signed("/internal/results", RESULTS(a.session_id));
+    db.prepare("INSERT INTO plan_requests (created_at, visitor, outcome) VALUES (?, 'ip:x', 'refused'), (?, 'ip:y', 'planned')").run(Date.now(), Date.now());
+    db.prepare("INSERT INTO waitlist_entries (email, created_at) VALUES ('a@b.co', ?)").run(Date.now());
+
+    expect((await call("/internal/stats", { method: "POST", body: "{}" })).status).toBe(401);
+    const res = await signed("/internal/stats", { days: 7 });
+    expect(res.status).toBe(200);
+    const body: any = await res.json();
+    expect(body.days).toHaveLength(7);
+    const today = body.days.at(-1);
+    expect(today).toMatchObject({ sessions: 2, completed: 1, plans: 1, plans_refused: 1, waitlist: 1, visitors: 4 });
+    expect(body.use_cases).toEqual({ "appointment-confirmation": 1, "lead-qualification": 1 });
+    expect(JSON.stringify(body)).not.toMatch(/Wednesday|a@b\.co/);
+    expect((await signed("/internal/stats", { days: 0 })).status).toBe(400);
+  });
+});

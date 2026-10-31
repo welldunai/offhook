@@ -19,7 +19,8 @@ export function memoryD1(): { d1: D1Database; db: DatabaseSync } {
   });
   const d1 = {
     prepare: (sql: string) => statement(sql),
-    batch: async (stmts: { run: () => Promise<unknown> }[]) => Promise.all(stmts.map((s) => s.run())),
+    // Like D1: every statement runs, and each returns its rows.
+    batch: async (stmts: { all: () => Promise<unknown> }[]) => Promise.all(stmts.map((s) => s.all())),
   };
   return { d1: d1 as unknown as D1Database, db };
 }

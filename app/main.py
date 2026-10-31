@@ -23,6 +23,7 @@ from app.api import (  # noqa: E402
     connections,
     health,
     phone_numbers,
+    stats,
     test_calls,
     tools,
     usage,
@@ -71,6 +72,7 @@ v1.include_router(tools.router)
 v1.include_router(api_keys.router)
 v1.include_router(webhooks.router)
 v1.include_router(usage.router)
+v1.include_router(stats.router)  # /v1/admin/stats, operators only
 v1.include_router(phone_numbers.router)
 v1.include_router(activity.router)  # /v1/calls (list), /events, /transcript, /stats
 v1.include_router(test_calls.router)  # /v1/agents/{id}/test-call

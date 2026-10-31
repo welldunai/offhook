@@ -65,6 +65,65 @@ export async function results(request: Request, env: Env): Promise<Response> {
   return json({ ok: true });
 }
 
+const DAY_OF = (col: string) => `strftime('%Y-%m-%d', ${col} / 1000, 'unixepoch')`;
+
+/**
+ * POST /internal/stats: {days} → demo activity per UTC day, for the hosted
+ * dashboard's stats page. Signed with DEMO_HMAC_SECRET. Counts only: no
+ * transcripts, plans or emails leave the Worker.
+ * Args: request — signed; env — bindings.
+ * Returns: 200 {days: [{day, visitors, sessions, completed, failed, expired, custom,
+ *   call_seconds, plans, plans_refused, plans_limited, waitlist}], use_cases: {slug|"custom": n}};
+ *   400 bad days; 401 bad signature.
+ */
+export async function stats(request: Request, env: Env): Promise<Response> {
+  const now = Date.now();
+  const body = await signedBody(request, env, now);
+  if (body instanceof Response) return body;
+  const days = Number(body.days ?? 30);
+  if (!Number.isInteger(days) || days < 1 || days > 365) return problem("invalid_days", "days must be 1 to 365.", 400);
+  const since = Date.UTC(new Date(now).getUTCFullYear(), new Date(now).getUTCMonth(), new Date(now).getUTCDate() - (days - 1));
+
+  const [sessions, plans, waitlist, visitors, useCases] = await env.DB.batch([
+    env.DB.prepare(
+      `SELECT ${DAY_OF("created_at")} AS day, COUNT(*) AS sessions,
+         SUM(status = 'completed') AS completed, SUM(status = 'failed') AS failed, SUM(status = 'expired') AS expired,
+         SUM(use_case IS NULL) AS custom,
+         COALESCE(SUM(CASE WHEN ended_at IS NOT NULL AND started_at IS NOT NULL THEN (ended_at - started_at) / 1000 END), 0) AS call_seconds
+       FROM demo_sessions WHERE created_at >= ? GROUP BY day`,
+    ).bind(since),
+    env.DB.prepare(
+      `SELECT ${DAY_OF("created_at")} AS day, SUM(outcome = 'planned') AS plans,
+         SUM(outcome = 'refused') AS plans_refused, SUM(outcome = 'limited') AS plans_limited
+       FROM plan_requests WHERE created_at >= ? GROUP BY day`,
+    ).bind(since),
+    env.DB.prepare(`SELECT ${DAY_OF("created_at")} AS day, COUNT(*) AS waitlist FROM waitlist_entries WHERE created_at >= ? GROUP BY day`).bind(since),
+    // Visitor keys are salted per day, so distinct keys per day are distinct visitors that day.
+    env.DB.prepare(
+      `SELECT day, COUNT(DISTINCT visitor) AS visitors FROM (
+         SELECT ${DAY_OF("created_at")} AS day, visitor FROM demo_sessions WHERE created_at >= ?1
+         UNION ALL SELECT ${DAY_OF("created_at")} AS day, visitor FROM plan_requests WHERE created_at >= ?1
+       ) GROUP BY day`,
+    ).bind(since),
+    env.DB.prepare(`SELECT COALESCE(use_case, 'custom') AS use_case, COUNT(*) AS n FROM demo_sessions WHERE created_at >= ? GROUP BY 1`).bind(since),
+  ]);
+
+  const byDay = new Map<string, Record<string, number | string>>();
+  for (let t = since; t <= now; t += 86_400_000) {
+    const day = new Date(t).toISOString().slice(0, 10);
+    byDay.set(day, { day, visitors: 0, sessions: 0, completed: 0, failed: 0, expired: 0, custom: 0, call_seconds: 0, plans: 0, plans_refused: 0, plans_limited: 0, waitlist: 0 });
+  }
+  for (const result of [sessions, plans, waitlist, visitors]) {
+    for (const row of result.results as Record<string, unknown>[]) {
+      const entry = byDay.get(String(row.day));
+      if (!entry) continue;
+      for (const [k, v] of Object.entries(row)) if (k !== "day") entry[k] = Math.round(Number(v ?? 0));
+    }
+  }
+  const use_cases = Object.fromEntries((useCases.results as { use_case: string; n: number }[]).map((r) => [r.use_case, r.n]));
+  return json({ days: [...byDay.values()], use_cases });
+}
+
 /**
  * POST /internal/reset: {} → clears today's per-visitor counts (plans, calls,
  * signups). For the maintainer, signed with DEMO_HMAC_SECRET like the voice

@@ -84,6 +84,22 @@ class WorkerClient:
                 await asyncio.sleep(2**attempt)
         return False
 
+    async def stats(self, days: int) -> dict[str, Any]:
+        """Fetch the demo's daily counts (``POST /internal/stats``).
+
+        Args:
+            days: How many UTC days back, including today (1 to 365).
+
+        Returns:
+            ``{"days": [...], "use_cases": {...}}`` as the Worker sends it.
+
+        Raises:
+            httpx.HTTPError: if the Worker can't be reached or refuses.
+        """
+        res = await self._post("/internal/stats", {"days": days})
+        res.raise_for_status()
+        return res.json()
+
     async def _post(self, path: str, body: dict[str, Any]) -> httpx.Response:
         """POST ``body`` as signed JSON; the signature covers the exact bytes sent."""
         text = json.dumps(body, separators=(",", ":"))

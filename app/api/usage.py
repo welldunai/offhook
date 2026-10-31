@@ -35,7 +35,8 @@ async def get_usage(
     ctx: TenantContext = Depends(require_tenant),
     db: AsyncSession = Depends(get_session),
 ) -> UsageOut:
-    conds = [UsageRecord.tenant_id == ctx.tenant_id]
+    # Phone calls only: dashboard test calls are recorded too (kind "test_call").
+    conds = [UsageRecord.tenant_id == ctx.tenant_id, UsageRecord.kind == "call"]
     if from_ is None and to is None:
         conds.append(UsageRecord.created_at >= func.date_trunc("month", func.now()))
     if from_ is not None:
